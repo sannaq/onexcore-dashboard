@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>ONEXCORE 선물 대시보드 — 실시간</title>
+<style>
+  :root{--bg:#f6f7f9;--panel:#fff;--panel2:#eef1f5;--line:#e4e7ee;--txt:#161a21;--sub:#697180;--accent:#2f6bff;--up:#12a150;--down:#e5484d;--wait:#d9820a;--upbg:rgba(18,161,80,.1);--downbg:rgba(229,72,77,.1);}
+  @media (prefers-color-scheme:dark){:root{--bg:#0d1017;--panel:#161b24;--panel2:#1c222d;--line:#272d39;--txt:#e8ecf3;--sub:#8790a1;--accent:#4a9eff;--up:#2ec46b;--down:#ff5b5b;--wait:#ffb020;--upbg:rgba(46,196,107,.12);--downbg:rgba(255,91,91,.12);}}
+  :root[data-theme="light"]{--bg:#f6f7f9;--panel:#fff;--panel2:#eef1f5;--line:#e4e7ee;--txt:#161a21;--sub:#697180;--accent:#2f6bff;--up:#12a150;--down:#e5484d;--wait:#d9820a;--upbg:rgba(18,161,80,.1);--downbg:rgba(229,72,77,.1);}
+  :root[data-theme="dark"]{--bg:#0d1017;--panel:#161b24;--panel2:#1c222d;--line:#272d39;--txt:#e8ecf3;--sub:#8790a1;--accent:#4a9eff;--up:#2ec46b;--down:#ff5b5b;--wait:#ffb020;--upbg:rgba(46,196,107,.12);--downbg:rgba(255,91,91,.12);}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font-family:'Segoe UI','Malgun Gothic',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;padding:16px;max-width:1080px;margin:0 auto}
+  .muted{color:var(--sub)}.num{font-variant-numeric:tabular-nums}
+  .hd{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
+  .brand{font-size:17px;font-weight:800}.brand small{display:block;font-size:11px;font-weight:500;color:var(--sub);margin-top:3px}
+  .dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:5px;vertical-align:middle}
+  .dot.on{background:var(--up);box-shadow:0 0 0 3px rgba(46,196,107,.2);animation:p 1.6s infinite}.dot.off{background:var(--wait)}
+  @keyframes p{50%{opacity:.4}}@media(prefers-reduced-motion:reduce){.dot{animation:none}}
+  .tbtn{width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--txt);font-size:17px;cursor:pointer}
+  .tbtn:hover{border-color:var(--accent)}
+  .tabs{display:flex;gap:6px;background:var(--panel2);padding:5px;border-radius:12px;margin-bottom:16px}
+  .tab{flex:1;text-align:center;padding:9px;border:none;border-radius:8px;background:transparent;color:var(--sub);font-size:14px;font-weight:700;cursor:pointer;font-family:inherit}
+  .tab.on{background:var(--panel);color:var(--txt);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:15px 16px;margin-bottom:14px}
+  h2{font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--sub);margin:0 0 12px;font-weight:700}
+  .view{display:none}.view.on{display:block}
+  .pill{font-size:11px;padding:3px 9px;border-radius:20px;font-weight:800;white-space:nowrap}
+  .p-buy{color:#fff;background:var(--up)}.p-wait{color:#fff;background:var(--wait)}.p-avoid{color:#fff;background:var(--down)}.p-base{color:var(--sub);background:var(--panel2);border:1px solid var(--line)}
+  .up{color:var(--up)}.down{color:var(--down)}
+  #q{width:100%;padding:12px 15px;font-size:16px;border-radius:11px;border:1px solid var(--line);background:var(--panel2);color:var(--txt);outline:none;font-family:inherit}
+  #q:focus{border-color:var(--accent)}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  .chip{font-size:12px;padding:5px 11px;border-radius:20px;background:var(--panel2);border:1px solid var(--line);color:var(--sub);cursor:pointer;font-family:inherit}
+  .chip:hover,.chip:focus-visible{border-color:var(--accent);color:var(--txt);outline:none}
+  .list{max-height:340px;overflow-y:auto;margin-top:12px}
+  .li{display:flex;align-items:center;gap:11px;padding:11px 6px;border-bottom:1px solid var(--line);cursor:pointer}
+  .li:last-child{border-bottom:none}.li:hover{background:var(--panel2)}.li.on{background:color-mix(in srgb,var(--accent) 10%,transparent)}
+  .sym{font-weight:800;font-size:14px;min-width:74px}.sym small{display:block;color:var(--sub);font-weight:500;font-size:11px}
+  .live-b{font-size:9px;color:var(--up);font-weight:800;margin-left:4px}
+  .px{margin-left:auto;font-weight:700;text-align:right;min-width:92px}.chg{font-size:12px;min-width:60px;text-align:right}
+  .price{font-size:26px;font-weight:800}
+  .bar{display:inline-block;width:108px;height:8px;background:var(--panel2);border-radius:5px;position:relative;border:1px solid var(--line);vertical-align:middle}
+  .bar i{position:absolute;top:-3px;width:4px;height:12px;border-radius:2px;background:var(--accent);transform:translateX(-2px)}
+  .fill{display:inline-block;width:108px;height:8px;border-radius:5px;overflow:hidden;background:var(--down);vertical-align:middle}.fill span{display:block;height:100%;background:var(--up)}
+  .kv{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:13.5px}.kv:last-child{border:none}
+  .zone{border-left:3px solid var(--line);padding:8px 12px;margin-top:8px;background:var(--panel2);border-radius:0 9px 9px 0}
+  .zone h3{margin:0 0 2px;font-size:13px}.zone p{margin:0;font-size:12.5px;color:var(--sub);line-height:1.5}
+  .z1{border-color:var(--up)}.z1 h3{color:var(--up)}.z2{border-color:var(--accent)}.z2 h3{color:var(--accent)}
+  .z3{border-color:var(--wait)}.z3 h3{color:var(--wait)}.z4{border-color:var(--down)}.z4 h3{color:var(--down)}
+  .cbtn{display:inline-block;margin-top:14px;padding:10px 14px;border-radius:10px;background:var(--accent);color:#fff;font-weight:700;font-size:13.5px;text-decoration:none}
+  .cbtn:hover{opacity:.9}
+  code{background:var(--panel2);padding:1px 6px;border-radius:5px;font-size:12.5px;color:var(--accent)}
+  .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .idx{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:13px 14px}
+  .idx .t{font-size:12px;color:var(--sub);display:flex;justify-content:space-between}.idx .v{font-size:21px;font-weight:800;margin-top:4px}.idx .d{font-size:13px;font-weight:700;margin-top:2px}
+  .fg{height:10px;border-radius:6px;background:linear-gradient(90deg,#e5484d,#d9820a,#12a150);position:relative;margin:14px 0 6px}
+  .fg i{position:absolute;top:-4px;width:5px;height:18px;background:var(--txt);border:2px solid var(--panel);border-radius:3px;transform:translateX(-3px)}
+  .fglab{display:flex;justify-content:space-between;font-size:11px;color:var(--sub)}
+  ul.chk{margin:0;padding-left:18px}ul.chk li{font-size:13px;line-height:1.7;margin-bottom:3px}ul.chk b{color:var(--txt)}
+  .disc{background:var(--downbg);border:1px solid color-mix(in srgb,var(--down) 30%,transparent);border-radius:12px;padding:12px 14px;font-size:12px;color:var(--down);line-height:1.6}
+  .foot{color:var(--sub);font-size:11.5px;margin-top:8px;text-align:center}
+  .grid{display:grid;grid-template-columns:1fr 1.1fr;gap:14px}
+  @media(max-width:780px){.grid{grid-template-columns:1fr}.idx .v{font-size:19px}}
+</style>
+</head>
+<body>
+<div class="hd">
+  <div class="brand">📊 ONEXCORE 선물 대시보드
+    <small><span id="live"><span class="dot off"></span>연결 중…</span> · 크립토 실시간 · <span id="clock">--:--:--</span></small></div>
+  <button class="tbtn" id="theme" title="라이트/다크">🌙</button>
+</div>
+<div class="tabs">
+  <button class="tab on" data-tab="coins">종목 분석</button>
+  <button class="tab" data-tab="market">미국 증시</button>
+</div>
+
+<div class="view on" id="v-coins">
+  <div class="grid">
+    <div class="card">
+      <h2>종목 검색 <span class="muted" id="cinfo" style="text-transform:none;font-weight:500">· 55종목</span></h2>
+      <input id="q" placeholder="심볼·이름 (예: BTC, 솔라나, TSLA)" autocomplete="off"/>
+      <div class="chips">
+        <span class="chip" tabindex="0" data-s="BTC">BTC</span><span class="chip" tabindex="0" data-s="ETH">ETH</span>
+        <span class="chip" tabindex="0" data-s="SOL">SOL</span><span class="chip" tabindex="0" data-s="BNB">BNB</span>
+        <span class="chip" tabindex="0" data-s="LINK">LINK</span><span class="chip" tabindex="0" data-s="NVDA">NVDA</span>
+      </div>
+      <div class="list" id="list"></div>
+      <div class="muted num" style="font-size:11px;margin-top:8px" id="count"></div>
+    </div>
+    <div class="card" id="detail"></div>
+  </div>
+</div>
+
+<div class="view" id="v-market">
+  <div class="card">
+    <h2>미국 주요 지수 <span class="muted" style="text-transform:none;font-weight:500">· 스냅샷 2026-07-30</span></h2>
+    <div class="g2">
+      <div class="idx"><div class="t"><span>나스닥</span><span>^IXIC</span></div><div class="v num">24,442.94</div><div class="d down num">−1.74%</div></div>
+      <div class="idx"><div class="t"><span>S&amp;P 500</span><span>SPX</span></div><div class="v num">7,328.00</div><div class="d up num">+0.17%</div></div>
+      <div class="idx"><div class="t"><span>다우</span><span>^DJI</span></div><div class="v num">51,594.14</div><div class="d down num">−2.19%</div></div>
+      <div class="idx"><div class="t"><span>러셀 2000</span><span>RUT</span></div><div class="v num">2,906.31</div><div class="d down num">−1.61%</div></div>
+    </div>
+    <p class="muted" style="font-size:12px;margin:12px 0 0;line-height:1.55">대형주 약세 속 S&amp;P 강보합 → 혼조. 증시 약세는 코인 위험자산에도 하방 압력. <b style="color:var(--txt)">(지수·심리는 스냅샷 — 실시간 아님)</b></p>
+  </div>
+  <div class="card">
+    <h2>시장 심리 · CNN Fear &amp; Greed</h2>
+    <div style="display:flex;align-items:baseline;gap:12px"><span class="price">34</span><span class="pill p-wait">공포 (Fear)</span></div>
+    <div class="fg"><i style="left:34%"></i></div>
+    <div class="fglab"><span>0 극단공포</span><span>50 중립</span><span>100 극단탐욕</span></div>
+    <p class="muted" style="font-size:12px;margin:12px 0 0;line-height:1.55">34 = 공포 구간. 단독 신호로 매매 금지.</p>
+  </div>
+  <div class="card">
+    <h2>미국 증시, 무엇을 봐야 하나</h2>
+    <ul class="chk"><li><b>주요 지수 방향</b> · <b>공포·탐욕</b> · <b>섹터 로테이션</b> · <b>10년물 금리·달러</b> · <b>BTC–나스닥 상관</b></li></ul>
+    <p class="muted" style="font-size:11.5px;margin:8px 0 0">※ 미국 지수/심리 실시간화는 별도 API가 필요해 현재 스냅샷입니다.</p>
+  </div>
+</div>
+
+<div class="disc">⚠️ 교육용 기술적 분석. Claude는 라이선스 투자 자문가가 아니며 개인 맞춤 투자 권유·매매 신호가 아닙니다. 저항(목표)/지지/관심 구간은 참고 시나리오이며 최종 판단·책임은 본인. 코인 선물은 원금 전액 손실 가능(리테일 70~97% 손실). 크립토는 바이낸스 공개 데이터 실시간, 주식형은 스냅샷.</div>
+<div class="foot">비공식 개인 분석 도구 · ONEXCORE·바이낸스·CNN과 무관 · 크립토 데이터: Binance 공개 API</div>
+
+<script>
+const root=document.documentElement,tb=document.getElementById('theme');
+function sysDark(){return matchMedia&&matchMedia('(prefers-color-scheme:dark)').matches;}
+function applyTheme(t){root.setAttribute('data-theme',t);tb.textContent=t==='dark'?'☀️':'🌙';}
+let sv=null;try{sv=localStorage.getItem('oxtheme');}catch(e){}
+applyTheme(sv||(sysDark()?'dark':'light'));
+tb.onclick=()=>{const n=root.getAttribute('data-theme')==='dark'?'light':'dark';applyTheme(n);try{localStorage.setItem('oxtheme',n);}catch(e){}};
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));t.classList.add('on');document.querySelectorAll('.view').forEach(v=>v.classList.remove('on'));document.getElementById('v-'+t.dataset.tab).classList.add('on');});
+
+/* bn = Binance futures symbol (실시간). 없으면 주식형 스냅샷. */
+const C=[
+ {s:"BTC",k:"비트코인",bn:"BTCUSDT",c:0.82},{s:"ETH",k:"이더리움",bn:"ETHUSDT",c:0.75},
+ {s:"SOL",k:"솔라나",bn:"SOLUSDT",c:0.92},{s:"XRP",k:"리플",bn:"XRPUSDT",c:0.36},
+ {s:"DOGE",k:"도지코인",bn:"DOGEUSDT",c:-0.69},{s:"BNB",k:"바이낸스코인",bn:"BNBUSDT",c:2.97},
+ {s:"ADA",k:"카르다노",bn:"ADAUSDT",c:1.28},{s:"AVAX",k:"아발란체",bn:"AVAXUSDT",c:1.16},
+ {s:"LINK",k:"체인링크",bn:"LINKUSDT",c:1.44},{s:"AAVE",k:"AAVE",bn:"AAVEUSDT",c:1.07},
+ {s:"NEAR",k:"니어",bn:"NEARUSDT",c:4.30},{s:"UNI",k:"유니스왑",bn:"UNIUSDT",c:4.52},
+ {s:"SUI",k:"SUI",bn:"SUIUSDT",c:0.52},{s:"TAO",k:"TAO",bn:"TAOUSDT",c:0.11},
+ {s:"BCH",k:"비트코인캐시",bn:"BCHUSDT",c:0.26},{s:"LTC",k:"라이트코인",bn:"LTCUSDT",c:-0.07},
+ {s:"DOT",k:"폴카닷",bn:"DOTUSDT",c:1.00},{s:"TRX",k:"트론",bn:"TRXUSDT",c:0.62},
+ {s:"ATOM",k:"코스모스",bn:"ATOMUSDT",c:0.70},{s:"ZEC",k:"지캐시",bn:"ZECUSDT",c:4.09},
+ {s:"XLM",k:"스텔라루멘",bn:"XLMUSDT",c:-0.64},{s:"APT",k:"앱토스",bn:"APTUSDT",c:0.65},
+ {s:"ARB",k:"아비트럼",bn:"ARBUSDT",c:0.22},{s:"ICP",k:"ICP",bn:"ICPUSDT",c:-0.34},
+ {s:"HBAR",k:"HBAR",bn:"HBARUSDT",c:-0.22},{s:"ETC",k:"이더리움클래식",bn:"ETCUSDT",c:1.61},
+ {s:"1000SHIB",k:"1000시바이누",bn:"1000SHIBUSDT",c:-3.25},
+ {s:"NVDA",k:"엔비디아",c:-1.12,hi:197.380,lo:188.920,px:194.690,dec:2,bp:47,fund:"0.0000%"},
+ {s:"TSLA",k:"테슬라",c:-0.83,hi:309.780,lo:293.800,px:304.920,dec:2,bp:38,fund:"0.0000%"},
+ {s:"ZEC2",k:"",p:""},
+ {s:"SNDK",k:"SNDK",c:-0.56,p:"1,087.37"},{s:"SKHYNIX",k:"SK하이닉스",c:-2.41,p:"970.95"},
+ {s:"MU",k:"마이크론",c:-0.11,p:"774.15"},{s:"KORU",k:"KORU",c:-0.35,p:"13.28"},
+ {s:"SPCX",k:"SPCX",c:0.04,p:"116.31"},{s:"EWY",k:"EWY",c:0.43,p:"149.18"},
+ {s:"SAMSUNG",k:"삼성",c:0.97,p:"153.34"},{s:"META",k:"메타",c:-11.16,p:"528.82"},
+ {s:"MSFT",k:"마이크로소프트",c:8.68,p:"428.76"},{s:"GOOGL",k:"알파벳(구글)",c:-0.51,p:"335.23"},
+ {s:"SHAZ",k:"SHAZ",c:-3.41,p:"44.24"},{s:"HK1810",k:"샤오미(HK1810)",c:-0.63,p:"31.58"},
+ {s:"HYUNDAI",k:"현대",c:0.95,p:"248.78"},{s:"TENCENT",k:"텐센트",c:1.79,p:"60.39"},
+ {s:"SOFI",k:"SOFI",c:-4.33,p:"15.47"},{s:"PENG",k:"PENG",c:-6.00,p:"45.74"},
+ {s:"HK0700",k:"텐센트(HK0700)",c:1.97,p:"473.10"},{s:"TMF",k:"TMF",c:-4.18,p:"31.42"},
+ {s:"TBT",k:"TBT",c:3.36,p:"37.84"},{s:"SMH",k:"SMH",c:-1.40,p:"520.80"},
+ {s:"HIVE",k:"HIVE",c:2.11,p:"0.04315"},{s:"POPMART",k:"팝마트",c:-2.25,p:"20.82"},
+ {s:"PYPL",k:"페이팔",c:-0.62,p:"57.48"},{s:"GS",k:"GS",c:-3.53,p:"993.86"},
+ {s:"PANW",k:"팔로알토",c:-0.01,p:"320.68"},{s:"BITO",k:"BITO",c:0.57,p:"8.76"},
+].filter(x=>x.s!=="ZEC2");
+const TAG={buy:["관심","p-buy"],wait:["관망","p-wait"],avoid:["주의","p-avoid"],base:["기본","p-base"]};
+function fmt(n,d){return (+n).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});}
+function esc(t){return String(t).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));}
+function decOf(p){p=Math.abs(+p);if(!isFinite(p))return 2;if(p>=100)return 2;if(p>=1)return 3;if(p>=0.1)return 4;if(p>=0.01)return 5;return 6;}
+function recalc(x){
+  if(x.hi==null||x.lo==null){x._st='base';x._disp=x.p||(x.px!=null?fmt(x.px,x.dec||2):'—');return;}
+  x._rp=Math.round((x.px-x.lo)/(x.hi-x.lo)*100);
+  const bp=x.bp;
+  x._st=(bp!=null&&bp<=30)?'avoid':x._rp>=85?'avoid':(x._rp<=25&&x.c>0)?'buy':'wait';
+  x._disp=fmt(x.px,x.dec);
+}
+C.forEach(recalc);
+const list=document.getElementById('list'),q=document.getElementById('q'),det=document.getElementById('detail'),cnt=document.getElementById('count');
+let sel="SOL",liveOK=false;
+function chgHtml(c){if(c==null||isNaN(c))return '<span class="chg muted num">—</span>';const u=c>=0;return '<span class="chg num '+(u?'up':'down')+'">'+(u?'+':'')+(+c).toFixed(2)+'%</span>';}
+function render(f){
+  const term=(f||'').trim().toLowerCase();
+  const rows=C.filter(x=>!term||x.s.toLowerCase().includes(term)||x.k.toLowerCase().includes(term));
+  list.innerHTML=rows.map(x=>{const t=TAG[x._st];const lb=x.bn?'<span class="live-b">●LIVE</span>':'';
+    return '<div class="li'+(x.s===sel?' on':'')+'" data-s="'+x.s+'"><div class="sym">'+x.s+lb+'<small>'+esc(x.k)+'</small></div><span class="pill '+t[1]+'">'+t[0]+'</span>'+chgHtml(x.c)+'<span class="px num '+(x.c>=0?'up':(x.c==null?'':'down'))+'">'+x._disp+'</span></div>';
+  }).join('')||'<div class="li muted">검색 결과 없음</div>';
+  cnt.textContent=rows.length+' / '+C.length+' 종목 · 크립토 27 실시간';
+  [...list.querySelectorAll('.li[data-s]')].forEach(el=>el.onclick=()=>{sel=el.dataset.s;render(q.value);showDetail(sel);});
+}
+function showDetail(s){
+  const x=C.find(v=>v.s===s);if(!x){det.innerHTML='';return;}const t=TAG[x._st];const d=x.dec||2;
+  const chart='<a class="cbtn" href="https://www.onexcore.com/trading/'+x.s.toLowerCase()+'usdt" target="_blank" rel="noopener">📈 ONEXCORE 차트 열기</a>';
+  let h='<h2>상세 — '+x.s+(x.bn?' <span class="live-b">●LIVE</span>':' <span class="muted" style="font-weight:500;text-transform:none">(스냅샷)</span>')+' <span class="muted" style="text-transform:none;font-weight:500">'+esc(x.k)+'</span></h2>';
+  h+='<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span class="price num">'+x._disp+'</span>'+chgHtml(x.c)+'<span class="pill '+t[1]+'">'+t[0]+'</span></div>';
+  if(x.hi!=null&&x.lo!=null){
+    const span=x.hi-x.lo,f382=x.hi-0.382*span,f618=x.hi-0.618*span;
+    const bpTxt=x.bp!=null?('<span class="fill"><span style="width:'+x.bp+'%"></span></span> '+x.bp+'%'):'<span class="muted">로딩…</span>';
+    const reason='레인지 '+x._rp+'%'+(x._rp>=85?' (고점권·추격 롱 손익비 불리)':x._rp<=25?' (저점권)':'')+(x.bp!=null?(' · 매수세 '+x.bp+'%'+(x.bp<=30?' (매도우위)':x.bp>=55?' (매수우위)':' (균형)')):'')+' · 펀딩 '+(x.fund||'—')+'.';
+    h+='<div style="margin-top:14px"><div class="kv"><span class="muted">24h 레인지 위치</span><span class="num"><span class="bar"><i style="left:'+x._rp+'%"></i></span> '+x._rp+'%</span></div>'
+      +'<div class="kv"><span class="muted">매수세 (호가)</span><span class="num">'+bpTxt+'</span></div>'
+      +'<div class="kv"><span class="muted">저항 (돌파목표)</span><span class="num" style="font-weight:700">'+fmt(x.hi,d)+'</span></div>'
+      +'<div class="kv"><span class="muted">지지</span><span class="num" style="font-weight:700">'+fmt(x.lo,d)+'</span></div></div>'
+      +'<p style="font-size:12.5px;color:var(--sub);line-height:1.6;margin:12px 0 0">'+reason+'</p>'
+      +'<div class="zone z1"><h3>▲ 롱 눌림목</h3><p>'+fmt(f618,d)+' ~ '+fmt(f382,d)+' (피보 0.618~0.382) 지지반응 시. 무효화 '+fmt(x.lo,d)+' 아래.</p></div>'
+      +'<div class="zone z2"><h3>▲ 돌파 추종</h3><p>'+fmt(x.hi,d)+' 종가+거래량 돌파 시 상방. 거래량 없으면 fakeout 주의.</p></div>'
+      +'<div class="zone z3"><h3>▼ 숏(반등매도)</h3><p>'+fmt(x.hi,d)+' 저항 거부 캔들 시. 손절 고가 위.</p></div>'
+      +'<div class="zone z4"><h3>✕ 진입금지</h3><p>'+fmt(x.lo,d)+' 이탈 시 관망.</p></div>'+chart;
+    if(x.bn&&x.bp==null)fetchDepth(x);
+  }else{
+    h+='<div style="margin-top:14px;font-size:13px;color:var(--sub);line-height:1.6">📊 주식형 스냅샷입니다(실시간 미지원). 정밀 시나리오는 Claude 채팅에 <code>'+x.s+' 분석해줘</code>.</div>'+chart;
+  }
+  det.innerHTML=h;
+}
+const FAPI='https://fapi.binance.com/fapi/v1/';
+async function fetchDepth(x){
+  try{const d=await fetch(FAPI+'depth?symbol='+x.bn+'&limit=20').then(r=>r.json());
+    const sum=a=>a.slice(0,10).reduce((s,r)=>s+ +r[1],0);const b=sum(d.bids),a=sum(d.asks);
+    x.bp=Math.round(b/(b+a)*100);recalc(x);if(sel===x.s)showDetail(x.s);render(q.value);
+  }catch(e){}
+}
+function stamp(){const d=new Date(),p=n=>String(n).padStart(2,'0');
+  document.getElementById('clock').textContent=p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());
+  document.getElementById('live').innerHTML=liveOK?'<span class="dot on"></span>실시간 연결됨':'<span class="dot off"></span>스냅샷(연결 실패)';
+}
+async function live(){
+  try{
+    const [t,pr]=await Promise.all([
+      fetch(FAPI+'ticker/24hr').then(r=>r.json()),
+      fetch(FAPI+'premiumIndex').then(r=>r.json())
+    ]);
+    const tm={},pm={};t.forEach(o=>tm[o.symbol]=o);pr.forEach(o=>pm[o.symbol]=o);
+    C.forEach(x=>{if(x.bn&&tm[x.bn]){const o=tm[x.bn];x.px=+o.lastPrice;x.hi=+o.highPrice;x.lo=+o.lowPrice;x.c=+o.priceChangePercent;x.dec=decOf(x.px);const f=pm[x.bn]?+pm[x.bn].lastFundingRate:null;x.fund=(f==null)?'—':((f>=0?'+':'')+(f*100).toFixed(4)+'%');recalc(x);}});
+    liveOK=true;
+  }catch(e){liveOK=false;}
+  stamp();render(q.value);if(sel)showDetail(sel);
+}
+q.oninput=()=>render(q.value);
+[...document.querySelectorAll('.chip')].forEach(c=>{const go=()=>{q.value=c.dataset.s;render(q.value);sel=c.dataset.s;showDetail(sel);};c.onclick=go;c.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}};});
+render('');showDetail('SOL');stamp();
+live();setInterval(live,45000);setInterval(stamp,1000);
+</script>
+</body>
+</html>
