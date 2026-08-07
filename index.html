@@ -203,7 +203,7 @@ function showDetail(s){
   const chart='<a class="cbtn" href="https://www.onexcore.com/trading/'+x.s.toLowerCase()+'usdt" target="_blank" rel="noopener">📈 ONEXCORE 차트 열기</a>';
   let h='<button class="backbtn" onclick="document.body.classList.remove(\'detail-open\');window.scrollTo({top:0})">◀ 목록으로</button><h2>상세 — '+x.s+(x.bn?' <span class="live-b">●LIVE</span>':' <span class="muted" style="font-weight:500;text-transform:none">(스냅샷)</span>')+' <span class="muted" style="text-transform:none;font-weight:500">'+esc(x.k)+'</span></h2>';
   h+='<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span class="price num">'+x._disp+'</span>'+chgHtml(x.c)+'<span class="pill '+t[1]+'">'+t[0]+'</span></div>';
-  if(x.bn){h+='<div class="tfrow">'+[['1m','1분'],['15m','15분'],['1h','1시간'],['1d','일봉']].map(function(a){return '<button class="tf'+(curInterval===a[0]?' on':'')+'" onclick="setTf(\''+a[0]+'\')">'+a[1]+'</button>';}).join('')+'</div><div class="chartlegend"><span class="lgd"><i style="border-color:#ff5b5b;border-top-style:dashed"></i>저항</span><span class="lgd"><i style="border-color:#2ec46b;border-top-style:dashed"></i>지지</span><span class="lgd"><i style="border-color:#4a9eff"></i>추세(스윙)</span><span class="lgd"><i style="border-color:#a06bff;border-top-style:dotted"></i>피보</span><span style="margin-left:auto">스크롤·핀치 확대/축소</span></div><div id="tvchart"></div>';}
+  if(x.bn){h+='<div class="tfrow">'+[['1m','1분'],['15m','15분'],['1h','1시간'],['1d','일봉']].map(function(a){return '<button class="tf'+(curInterval===a[0]?' on':'')+'" onclick="setTf(\''+a[0]+'\')">'+a[1]+'</button>';}).join('')+'</div><div class="chartlegend"><span class="lgd"><i style="border-color:#ff5b5b;border-top-style:dashed"></i>저항</span><span class="lgd"><i style="border-color:#2ec46b;border-top-style:dashed"></i>지지</span><span class="lgd"><i style="border-color:#4a9eff"></i>추세선(고·저)</span><span class="lgd"><i style="border-color:#a06bff;border-top-style:dotted"></i>피보</span><span style="margin-left:auto">스크롤·핀치 확대/축소</span></div><div id="tvchart"></div>';}
   if(x.hi!=null&&x.lo!=null){
     const span=x.hi-x.lo,f382=x.hi-0.382*span,f618=x.hi-0.618*span;
     const bpTxt=x.bp!=null?('<span class="fill"><span style="width:'+x.bp+'%"></span></span> '+x.bp+'%'):'<span class="muted">로딩…</span>';
@@ -248,20 +248,15 @@ async function drawChart(x){
     [[0.236,'0.236'],[0.382,'0.382'],[0.5,'0.5'],[0.618,'0.618'],[0.786,'0.786']].forEach(function(f){
       cs.createPriceLine({price:hi-f[0]*(hi-lo),color:'#a06bff',lineWidth:1,lineStyle:1,axisLabelVisible:false,title:'fib '+f[1]});
     });
-    const up = data[data.length-1].close >= data[0].close;
-    const pv = pivots(data,3, up?'low':'high');
-    const ts=chart.addLineSeries({color:'#4a9eff',lineWidth:2,lastValueVisible:false,priceLineVisible:false,crosshairMarkerVisible:false});
-    if(pv.length>=2){
+    [['low','#4a9eff'],['high','#4a9eff']].forEach(function(cfg){
+      const pv=pivots(data,3,cfg[0]);
+      if(pv.length<2)return;
       const a=pv[pv.length-2], b=pv[pv.length-1];
-      const pa=up?data[a].low:data[a].high, pb=up?data[b].low:data[b].high;
+      const pa=cfg[0]==='low'?data[a].low:data[a].high, pb=cfg[0]==='low'?data[b].low:data[b].high;
       const slope=(pb-pa)/(b-a);
-      ts.setData(data.map((d,i)=>({time:d.time,value:pa+slope*(i-a)})));
-    } else {
-      let sx=0,sy=0,sxy=0,sxx=0,n=data.length;
-      data.forEach((d,i)=>{sx+=i;sy+=d.close;sxy+=i*d.close;sxx+=i*i;});
-      const den=(n*sxx-sx*sx),sl=den?(n*sxy-sx*sy)/den:0,itc=(sy-sl*sx)/n;
-      ts.setData(data.map((d,i)=>({time:d.time,value:itc+sl*i})));
-    }
+      const s=chart.addLineSeries({color:cfg[1],lineWidth:2,lastValueVisible:false,priceLineVisible:false,crosshairMarkerVisible:false});
+      s.setData(data.map((d,i)=>({time:d.time,value:pa+slope*(i-a)})));
+    });
     chart.timeScale().fitContent();
   }catch(e){el.innerHTML='<div class="muted" style="padding:24px;text-align:center;font-size:12px">차트 데이터를 불러오지 못했어요</div>';}
 }
