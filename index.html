@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>ONEXCORE 선물 대시보드 — 실시간</title>
 <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <style>
   :root{--bg:#f6f7f9;--panel:#fff;--panel2:#eef1f5;--line:#e4e7ee;--txt:#161a21;--sub:#697180;--accent:#2f6bff;--up:#12a150;--down:#e5484d;--wait:#d9820a;--upbg:rgba(18,161,80,.1);--downbg:rgba(229,72,77,.1);}
   @media (prefers-color-scheme:dark){:root{--bg:#0d1017;--panel:#161b24;--panel2:#1c222d;--line:#272d39;--txt:#e8ecf3;--sub:#8790a1;--accent:#4a9eff;--up:#2ec46b;--down:#ff5b5b;--wait:#ffb020;--upbg:rgba(46,196,107,.12);--downbg:rgba(255,91,91,.12);}}
@@ -20,6 +23,8 @@
   @keyframes p{50%{opacity:.4}}@media(prefers-reduced-motion:reduce){.dot{animation:none}}
   .tbtn{width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--txt);font-size:17px;cursor:pointer}
   .tbtn:hover{border-color:var(--accent)}
+  .loginbtn{padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--txt);font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px}
+  .loginbtn:hover{border-color:var(--accent)}
   .tabs{display:flex;gap:6px;background:var(--panel2);padding:5px;border-radius:12px;margin-bottom:16px}
   .tab{flex:1;text-align:center;padding:9px;border:none;border-radius:8px;background:transparent;color:var(--sub);font-size:14px;font-weight:700;cursor:pointer;font-family:inherit}
   .tab.on{background:var(--panel);color:var(--txt);box-shadow:0 1px 3px rgba(0,0,0,.08)}
@@ -92,7 +97,10 @@
 <div class="hd">
   <div class="brand">📊 ONEXCORE 선물 대시보드
     <small><span id="live"><span class="dot off"></span>연결 중…</span> · 크립토 실시간 · <span id="clock">--:--:--</span></small></div>
-  <button class="tbtn" id="theme" title="라이트/다크">🌙</button>
+  <div style="display:flex;gap:8px;align-items:center">
+    <button class="loginbtn" id="login">🔓 로그인</button>
+    <button class="tbtn" id="theme" title="라이트/다크">🌙</button>
+  </div>
 </div>
 <div class="tabs">
   <button class="tab on" data-tab="coins">종목 분석</button>
@@ -202,7 +210,7 @@ C.forEach(recalc);
 const list=document.getElementById('list'),q=document.getElementById('q'),det=document.getElementById('detail'),cnt=document.getElementById('count');
 let sel="SOL",liveOK=false,favOnly=false,favs=new Set();
 try{favs=new Set(JSON.parse(localStorage.getItem('oxfav')||'[]'));}catch(e){}
-function toggleFav(s,ev){if(ev){ev.stopPropagation();} if(favs.has(s))favs.delete(s); else favs.add(s); try{localStorage.setItem('oxfav',JSON.stringify([...favs]));}catch(e){} render(q.value);}
+function toggleFav(s,ev){if(ev){ev.stopPropagation();} if(favs.has(s))favs.delete(s); else favs.add(s); try{localStorage.setItem('oxfav',JSON.stringify([...favs]));}catch(e){} if(typeof saveFavRemote==='function')saveFavRemote(); render(q.value);}
 function toggleFavOnly(){favOnly=!favOnly; render(q.value);}
 function chgHtml(c){if(c==null||isNaN(c))return '<span class="chg muted num">—</span>';const u=c>=0;return '<span class="chg num '+(u?'up':'down')+'">'+(u?'+':'')+(+c).toFixed(2)+'%</span>';}
 function render(f){
@@ -358,6 +366,32 @@ q.oninput=()=>render(q.value);
 [...document.querySelectorAll('.chip')].forEach(c=>{const go=()=>{q.value=c.dataset.s;render(q.value);sel=c.dataset.s;showDetail(sel);if(window.innerWidth<=780){document.body.classList.add('detail-open');window.scrollTo({top:0,behavior:'smooth'});}};c.onclick=go;c.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}};});
 render('');showDetail('SOL');stamp();
 live();setInterval(live,45000);setInterval(stamp,1000);
+
+/* ---- Firebase: 구글 로그인 + 즐겨찾기 기기간 동기화 ---- */
+var fbUser=null, fbDb=null;
+function saveFavRemote(){ if(fbUser&&fbDb){ fbDb.collection('favorites').doc(fbUser.uid).set({syms:[...favs]}).catch(function(){}); } }
+(function(){
+  if(!(window.firebase&&firebase.initializeApp)) return;
+  firebase.initializeApp({apiKey:"AIzaSyDjT85cCBsfMTasQlEN1BsGnfJWe27leKQ",authDomain:"onexcore-dashboard.firebaseapp.com",projectId:"onexcore-dashboard",storageBucket:"onexcore-dashboard.firebasestorage.app",messagingSenderId:"252509839266",appId:"1:252509839266:web:23b35e3a6be1d6393e1cfb"});
+  fbDb=firebase.firestore();
+  var lb=document.getElementById('login');
+  lb.onclick=function(){
+    if(fbUser){ if(confirm('로그아웃할까요?'))firebase.auth().signOut(); return; }
+    firebase.auth().signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(function(e){alert('로그인 실패: '+e.message);});
+  };
+  firebase.auth().onAuthStateChanged(function(u){
+    fbUser=u;
+    if(u){
+      lb.innerHTML='🟢 '+(u.displayName?u.displayName.split(' ')[0]:'로그인됨');
+      fbDb.collection('favorites').doc(u.uid).get().then(function(doc){
+        var remote=(doc.exists&&Array.isArray(doc.data().syms))?doc.data().syms:[];
+        remote.forEach(function(s){favs.add(s);});
+        try{localStorage.setItem('oxfav',JSON.stringify([...favs]));}catch(e){}
+        saveFavRemote(); render(q.value); if(sel)showDetail(sel);
+      }).catch(function(){});
+    } else { lb.innerHTML='🔓 로그인'; }
+  });
+})();
 </script>
 </body>
 </html>
