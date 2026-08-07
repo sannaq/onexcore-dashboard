@@ -69,6 +69,9 @@
   .tfrow{display:flex;gap:6px;margin:12px 0 0;flex-wrap:wrap}
   .tf{padding:5px 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--sub);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
   .tf.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .lqcard{margin-top:12px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:11px 13px}
+  .lqh{font-size:12px;font-weight:800;margin-bottom:6px}
+  .lqrow{display:flex;justify-content:space-between;font-size:13px;padding:4px 0}
   .backbtn{display:none;align-items:center;gap:6px;margin:0 0 12px;padding:9px 14px;border-radius:9px;border:1px solid var(--line);background:var(--panel2);color:var(--txt);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
   @media(max-width:780px){.grid{grid-template-columns:1fr}.idx .v{font-size:19px}
     body:not(.detail-open) #detail{display:none}
@@ -203,7 +206,12 @@ function showDetail(s){
   const chart='<a class="cbtn" href="https://www.onexcore.com/trading/'+x.s.toLowerCase()+'usdt" target="_blank" rel="noopener">📈 ONEXCORE 차트 열기</a>';
   let h='<button class="backbtn" onclick="document.body.classList.remove(\'detail-open\');window.scrollTo({top:0})">◀ 목록으로</button><h2>상세 — '+x.s+(x.bn?' <span class="live-b">●LIVE</span>':' <span class="muted" style="font-weight:500;text-transform:none">(스냅샷)</span>')+' <span class="muted" style="text-transform:none;font-weight:500">'+esc(x.k)+'</span></h2>';
   h+='<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span class="price num">'+x._disp+'</span>'+chgHtml(x.c)+'<span class="pill '+t[1]+'">'+t[0]+'</span></div>';
-  if(x.bn){h+='<div class="tfrow">'+[['1m','1분'],['15m','15분'],['1h','1시간'],['1d','일봉']].map(function(a){return '<button class="tf'+(curInterval===a[0]?' on':'')+'" onclick="setTf(\''+a[0]+'\')">'+a[1]+'</button>';}).join('')+'</div><div class="chartlegend"><span class="lgd"><i style="border-color:#ff5b5b;border-top-style:dashed"></i>저항</span><span class="lgd"><i style="border-color:#2ec46b;border-top-style:dashed"></i>지지</span><span class="lgd"><i style="border-color:#4a9eff"></i>추세선(고·저)</span><span class="lgd"><i style="border-color:#a06bff;border-top-style:dotted"></i>피보</span><span style="margin-left:auto">스크롤·핀치 확대/축소</span></div><div id="tvchart"></div>';}
+  if(x.bn){
+    h+='<div class="tfrow"><button class="tf'+(chartOn?' on':'')+'" onclick="toggleChart()">'+(chartOn?'📉 차트끄기':'📈 차트보기')+'</button>';
+    if(chartOn){h+=[['1m','1분'],['5m','5분'],['30m','30분'],['1h','1시간'],['4h','4시간'],['1d','1일']].map(function(a){return '<button class="tf'+(curInterval===a[0]?' on':'')+'" onclick="setTf(\''+a[0]+'\')">'+a[1]+'</button>';}).join('')+'<button class="tf" onclick="saveChart()">📷 저장</button>';}
+    h+='</div>';
+    if(chartOn){h+='<div class="chartlegend"><span class="lgd"><i style="border-color:#ff5b5b;border-top-style:dashed"></i>저항</span><span class="lgd"><i style="border-color:#2ec46b;border-top-style:dashed"></i>지지</span><span class="lgd"><i style="border-color:#4a9eff"></i>추세선(고·저)</span><span class="lgd"><i style="border-color:#a06bff;border-top-style:dotted"></i>피보</span><span style="margin-left:auto">스크롤·핀치 확대/축소</span></div><div id="tvchart"></div>';}
+  }
   if(x.hi!=null&&x.lo!=null){
     const span=x.hi-x.lo,f382=x.hi-0.382*span,f618=x.hi-0.618*span;
     const bpTxt=x.bp!=null?('<span class="fill"><span style="width:'+x.bp+'%"></span></span> '+x.bp+'%'):'<span class="muted">로딩…</span>';
@@ -216,17 +224,29 @@ function showDetail(s){
       +'<div class="zone z1"><h3>▲ 롱 눌림목</h3><p>'+fmt(f618,d)+' ~ '+fmt(f382,d)+' (피보 0.618~0.382) 지지반응 시. 무효화 '+fmt(x.lo,d)+' 아래.</p></div>'
       +'<div class="zone z2"><h3>▲ 돌파 추종</h3><p>'+fmt(x.hi,d)+' 종가+거래량 돌파 시 상방. 거래량 없으면 fakeout 주의.</p></div>'
       +'<div class="zone z3"><h3>▼ 숏(반등매도)</h3><p>'+fmt(x.hi,d)+' 저항 거부 캔들 시. 손절 고가 위.</p></div>'
-      +'<div class="zone z4"><h3>✕ 진입금지</h3><p>'+fmt(x.lo,d)+' 이탈 시 관망.</p></div>'+chart;
+      +'<div class="zone z4"><h3>✕ 진입금지</h3><p>'+fmt(x.lo,d)+' 이탈 시 관망.</p></div>'
+      +'<div class="lqcard"><div class="lqh">진입·청산 예시 <span class="muted" style="font-weight:400;text-transform:none">(교육용·격리 근사)</span></div>'
+      +'<div class="lqrow"><span class="muted">▲ 롱 관심 진입</span><span class="num">'+fmt(f618,d)+' ~ '+fmt(f382,d)+'</span></div>'
+      +'<div class="lqrow"><span class="muted">└ 청산가 10x / 25x</span><span class="num down">'+fmt(f618*0.9,d)+' / '+fmt(f618*0.96,d)+'</span></div>'
+      +'<div class="lqrow"><span class="muted">▼ 숏 관심 진입</span><span class="num">'+fmt(x.hi,d)+'</span></div>'
+      +'<div class="lqrow"><span class="muted">└ 청산가 10x / 25x</span><span class="num up">'+fmt(x.hi*1.1,d)+' / '+fmt(x.hi*1.04,d)+'</span></div>'
+      +'<div class="muted" style="font-size:11px;margin-top:6px;line-height:1.5">근사식: 롱 청산=진입×(1−1/레버리지), 숏 청산=진입×(1+1/레버리지). 수수료·유지증거금 제외한 대략값입니다.</div></div>'
+      +chart;
     if(x.bn&&x.bp==null)fetchDepth(x);
   }else{
     h+='<div style="margin-top:14px;font-size:13px;color:var(--sub);line-height:1.6">📊 주식형 스냅샷입니다(실시간 미지원). 정밀 시나리오는 Claude 채팅에 <code>'+x.s+' 분석해줘</code>.</div>'+chart;
   }
   det.innerHTML=h;
-  if(x.bn&&window.LightweightCharts)drawChart(x);
+  if(x.bn&&chartOn&&window.LightweightCharts)drawChart(x);
 }
 const FAPI='https://fapi.binance.com/fapi/v1/';
-let chartObj=null, curInterval='15m';
+let chartObj=null, curInterval='15m', chartTimer=null, chartOn=true;
+try{chartOn=localStorage.getItem('oxchart')!=='0';}catch(e){}
+const LIM={'1m':180,'5m':180,'30m':160,'1h':168,'4h':180,'1d':150};
+function toBars(raw){return raw.map(k=>({time:Math.floor(k[0]/1000),open:+k[1],high:+k[2],low:+k[3],close:+k[4]}));}
 function setTf(iv){curInterval=iv; if(sel) showDetail(sel);}
+function toggleChart(){chartOn=!chartOn;try{localStorage.setItem('oxchart',chartOn?'1':'0');}catch(e){} if(sel)showDetail(sel);}
+function saveChart(){if(!chartObj)return;try{const c=chartObj.takeScreenshot();const a=document.createElement('a');a.href=c.toDataURL('image/png');a.download=(sel||'chart')+'_'+curInterval+'.png';a.click();}catch(e){}}
 function pivots(data,w,type){var r=[];for(var i=w;i<data.length-w;i++){var ok=true;for(var j=i-w;j<=i+w;j++){if(j===i)continue; if(type==='low'&&data[j].low<data[i].low){ok=false;break;} if(type==='high'&&data[j].high>data[i].high){ok=false;break;}} if(ok)r.push(i);} return r;}
 async function drawChart(x){
   const el=document.getElementById('tvchart'); if(!el||!window.LightweightCharts) return;
@@ -236,16 +256,17 @@ async function drawChart(x){
   const chart=LightweightCharts.createChart(el,{autoSize:true,layout:{background:{color:'transparent'},textColor:txt,fontSize:11},grid:{vertLines:{color:grid},horzLines:{color:grid}},timeScale:{timeVisible:true,secondsVisible:false,borderColor:bd},rightPriceScale:{borderColor:bd},crosshair:{mode:0}});
   chartObj=chart;
   const cs=chart.addCandlestickSeries({upColor:'#2ec46b',downColor:'#ff5b5b',borderVisible:false,wickUpColor:'#2ec46b',wickDownColor:'#ff5b5b'});
-  const LIM={'1m':180,'15m':160,'1h':168,'1d':120};
+  if(chartTimer){clearInterval(chartTimer);chartTimer=null;}
+  const url=FAPI+'klines?symbol='+x.bn+'&interval='+curInterval+'&limit='+(LIM[curInterval]||160);
   try{
-    const raw=await fetch(FAPI+'klines?symbol='+x.bn+'&interval='+curInterval+'&limit='+(LIM[curInterval]||160)).then(r=>r.json());
+    const raw=await fetch(url).then(r=>r.json());
     if(!Array.isArray(raw))throw 0;
-    const data=raw.map(k=>({time:Math.floor(k[0]/1000),open:+k[1],high:+k[2],low:+k[3],close:+k[4]}));
+    const data=toBars(raw);
     cs.setData(data);
-    cs.createPriceLine({price:x.hi,color:'#ff5b5b',lineWidth:1,lineStyle:2,axisLabelVisible:true,title:'저항'});
-    cs.createPriceLine({price:x.lo,color:'#2ec46b',lineWidth:1,lineStyle:2,axisLabelVisible:true,title:'지지'});
+    cs.createPriceLine({price:x.hi,color:'#ff5b5b',lineWidth:2,lineStyle:2,axisLabelVisible:true,title:'저항'});
+    cs.createPriceLine({price:x.lo,color:'#2ec46b',lineWidth:2,lineStyle:2,axisLabelVisible:true,title:'지지'});
     var hi=-Infinity,lo=Infinity; data.forEach(function(d){if(d.high>hi)hi=d.high; if(d.low<lo)lo=d.low;});
-    [[0.236,'0.236'],[0.382,'0.382'],[0.5,'0.5'],[0.618,'0.618'],[0.786,'0.786']].forEach(function(f){
+    [[0.382,'0.382'],[0.5,'0.5'],[0.618,'0.618']].forEach(function(f){
       cs.createPriceLine({price:hi-f[0]*(hi-lo),color:'#a06bff',lineWidth:1,lineStyle:1,axisLabelVisible:false,title:'fib '+f[1]});
     });
     [['low','#4a9eff'],['high','#4a9eff']].forEach(function(cfg){
@@ -258,6 +279,7 @@ async function drawChart(x){
       s.setData(data.map((d,i)=>({time:d.time,value:pa+slope*(i-a)})));
     });
     chart.timeScale().fitContent();
+    chartTimer=setInterval(function(){ fetch(url).then(r=>r.json()).then(function(rw){ if(Array.isArray(rw)) cs.setData(toBars(rw)); }).catch(function(){}); }, 30000);
   }catch(e){el.innerHTML='<div class="muted" style="padding:24px;text-align:center;font-size:12px">차트 데이터를 불러오지 못했어요</div>';}
 }
 async function fetchDepth(x){
