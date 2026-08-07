@@ -66,6 +66,9 @@
   .chartlegend{display:flex;gap:12px;flex-wrap:wrap;font-size:11.5px;color:var(--sub);margin:12px 0 2px;align-items:center}
   .lgd{display:inline-flex;align-items:center;gap:5px}
   .lgd i{width:15px;height:0;border-top:2px solid;display:inline-block}
+  .tfrow{display:flex;gap:6px;margin:12px 0 0;flex-wrap:wrap}
+  .tf{padding:5px 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--sub);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+  .tf.on{background:var(--accent);color:#fff;border-color:var(--accent)}
   .backbtn{display:none;align-items:center;gap:6px;margin:0 0 12px;padding:9px 14px;border-radius:9px;border:1px solid var(--line);background:var(--panel2);color:var(--txt);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
   @media(max-width:780px){.grid{grid-template-columns:1fr}.idx .v{font-size:19px}
     body:not(.detail-open) #detail{display:none}
@@ -200,7 +203,7 @@ function showDetail(s){
   const chart='<a class="cbtn" href="https://www.onexcore.com/trading/'+x.s.toLowerCase()+'usdt" target="_blank" rel="noopener">📈 ONEXCORE 차트 열기</a>';
   let h='<button class="backbtn" onclick="document.body.classList.remove(\'detail-open\');window.scrollTo({top:0})">◀ 목록으로</button><h2>상세 — '+x.s+(x.bn?' <span class="live-b">●LIVE</span>':' <span class="muted" style="font-weight:500;text-transform:none">(스냅샷)</span>')+' <span class="muted" style="text-transform:none;font-weight:500">'+esc(x.k)+'</span></h2>';
   h+='<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span class="price num">'+x._disp+'</span>'+chgHtml(x.c)+'<span class="pill '+t[1]+'">'+t[0]+'</span></div>';
-  if(x.bn){h+='<div class="chartlegend"><span class="lgd"><i style="border-color:#ff5b5b;border-top-style:dashed"></i>저항</span><span class="lgd"><i style="border-color:#4a9eff"></i>추세</span><span class="lgd"><i style="border-color:#2ec46b;border-top-style:dashed"></i>지지</span><span style="margin-left:auto">스크롤·핀치로 확대/축소</span></div><div id="tvchart"></div>';}
+  if(x.bn){h+='<div class="tfrow">'+[['1m','1분'],['15m','15분'],['1h','1시간'],['1d','일봉']].map(function(a){return '<button class="tf'+(curInterval===a[0]?' on':'')+'" onclick="setTf(\''+a[0]+'\')">'+a[1]+'</button>';}).join('')+'</div><div class="chartlegend"><span class="lgd"><i style="border-color:#ff5b5b;border-top-style:dashed"></i>저항</span><span class="lgd"><i style="border-color:#2ec46b;border-top-style:dashed"></i>지지</span><span class="lgd"><i style="border-color:#4a9eff"></i>추세(스윙)</span><span class="lgd"><i style="border-color:#a06bff;border-top-style:dotted"></i>피보</span><span style="margin-left:auto">스크롤·핀치 확대/축소</span></div><div id="tvchart"></div>';}
   if(x.hi!=null&&x.lo!=null){
     const span=x.hi-x.lo,f382=x.hi-0.382*span,f618=x.hi-0.618*span;
     const bpTxt=x.bp!=null?('<span class="fill"><span style="width:'+x.bp+'%"></span></span> '+x.bp+'%'):'<span class="muted">로딩…</span>';
@@ -222,7 +225,9 @@ function showDetail(s){
   if(x.bn&&window.LightweightCharts)drawChart(x);
 }
 const FAPI='https://fapi.binance.com/fapi/v1/';
-let chartObj=null;
+let chartObj=null, curInterval='15m';
+function setTf(iv){curInterval=iv; if(sel) showDetail(sel);}
+function pivots(data,w,type){var r=[];for(var i=w;i<data.length-w;i++){var ok=true;for(var j=i-w;j<=i+w;j++){if(j===i)continue; if(type==='low'&&data[j].low<data[i].low){ok=false;break;} if(type==='high'&&data[j].high>data[i].high){ok=false;break;}} if(ok)r.push(i);} return r;}
 async function drawChart(x){
   const el=document.getElementById('tvchart'); if(!el||!window.LightweightCharts) return;
   if(chartObj){try{chartObj.remove()}catch(e){} chartObj=null;}
@@ -231,18 +236,32 @@ async function drawChart(x){
   const chart=LightweightCharts.createChart(el,{autoSize:true,layout:{background:{color:'transparent'},textColor:txt,fontSize:11},grid:{vertLines:{color:grid},horzLines:{color:grid}},timeScale:{timeVisible:true,secondsVisible:false,borderColor:bd},rightPriceScale:{borderColor:bd},crosshair:{mode:0}});
   chartObj=chart;
   const cs=chart.addCandlestickSeries({upColor:'#2ec46b',downColor:'#ff5b5b',borderVisible:false,wickUpColor:'#2ec46b',wickDownColor:'#ff5b5b'});
+  const LIM={'1m':180,'15m':160,'1h':168,'1d':120};
   try{
-    const raw=await fetch(FAPI+'klines?symbol='+x.bn+'&interval=15m&limit=160').then(r=>r.json());
+    const raw=await fetch(FAPI+'klines?symbol='+x.bn+'&interval='+curInterval+'&limit='+(LIM[curInterval]||160)).then(r=>r.json());
     if(!Array.isArray(raw))throw 0;
     const data=raw.map(k=>({time:Math.floor(k[0]/1000),open:+k[1],high:+k[2],low:+k[3],close:+k[4]}));
     cs.setData(data);
     cs.createPriceLine({price:x.hi,color:'#ff5b5b',lineWidth:1,lineStyle:2,axisLabelVisible:true,title:'저항'});
     cs.createPriceLine({price:x.lo,color:'#2ec46b',lineWidth:1,lineStyle:2,axisLabelVisible:true,title:'지지'});
-    const n=data.length;let sx=0,sy=0,sxy=0,sxx=0;
-    data.forEach((d,i)=>{sx+=i;sy+=d.close;sxy+=i*d.close;sxx+=i*i;});
-    const den=(n*sxx-sx*sx),slope=den?(n*sxy-sx*sy)/den:0,intr=(sy-slope*sx)/n;
+    var hi=-Infinity,lo=Infinity; data.forEach(function(d){if(d.high>hi)hi=d.high; if(d.low<lo)lo=d.low;});
+    [[0.236,'0.236'],[0.382,'0.382'],[0.5,'0.5'],[0.618,'0.618'],[0.786,'0.786']].forEach(function(f){
+      cs.createPriceLine({price:hi-f[0]*(hi-lo),color:'#a06bff',lineWidth:1,lineStyle:1,axisLabelVisible:false,title:'fib '+f[1]});
+    });
+    const up = data[data.length-1].close >= data[0].close;
+    const pv = pivots(data,3, up?'low':'high');
     const ts=chart.addLineSeries({color:'#4a9eff',lineWidth:2,lastValueVisible:false,priceLineVisible:false,crosshairMarkerVisible:false});
-    ts.setData(data.map((d,i)=>({time:d.time,value:intr+slope*i})));
+    if(pv.length>=2){
+      const a=pv[pv.length-2], b=pv[pv.length-1];
+      const pa=up?data[a].low:data[a].high, pb=up?data[b].low:data[b].high;
+      const slope=(pb-pa)/(b-a);
+      ts.setData(data.map((d,i)=>({time:d.time,value:pa+slope*(i-a)})));
+    } else {
+      let sx=0,sy=0,sxy=0,sxx=0,n=data.length;
+      data.forEach((d,i)=>{sx+=i;sy+=d.close;sxy+=i*d.close;sxx+=i*i;});
+      const den=(n*sxx-sx*sx),sl=den?(n*sxy-sx*sy)/den:0,itc=(sy-sl*sx)/n;
+      ts.setData(data.map((d,i)=>({time:d.time,value:itc+sl*i})));
+    }
     chart.timeScale().fitContent();
   }catch(e){el.innerHTML='<div class="muted" style="padding:24px;text-align:center;font-size:12px">차트 데이터를 불러오지 못했어요</div>';}
 }
