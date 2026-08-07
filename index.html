@@ -86,6 +86,15 @@
   .star{cursor:pointer;color:var(--line);font-size:16px;line-height:1;user-select:none;margin-right:2px}
   .star.on,.star:hover{color:#ffb020}
   .favchip.on{background:var(--wait);color:#fff;border-color:var(--wait)}
+  .dir{font-size:10px;font-weight:800;padding:2px 6px;border-radius:5px;white-space:nowrap}
+  .dir-long{color:#fff;background:var(--up)}
+  .dir-short{color:#fff;background:var(--down)}
+  .sigcard{margin:12px 0 2px;border-radius:12px;padding:12px 14px;border:1px solid var(--line)}
+  .sig-long{background:var(--upbg);border-color:color-mix(in srgb,var(--up) 40%,transparent)}
+  .sig-short{background:var(--downbg);border-color:color-mix(in srgb,var(--down) 40%,transparent)}
+  .sigdir{font-size:18px;font-weight:800}
+  .sigrow{display:flex;gap:14px;flex-wrap:wrap;margin-top:7px;font-size:13px}
+  .sigrow b{font-variant-numeric:tabular-nums;color:var(--txt)}
   .backbtn{display:none;align-items:center;gap:6px;margin:0 0 12px;padding:9px 14px;border-radius:9px;border:1px solid var(--line);background:var(--panel2);color:var(--txt);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
   @media(max-width:780px){.grid{grid-template-columns:1fr}.idx .v{font-size:19px}
     body:not(.detail-open) #detail{display:none}
@@ -222,7 +231,7 @@ function render(f){
   const term=(f||'').trim().toLowerCase();
   const rows=C.filter(x=>(!favOnly||!!term||favs.has(x.s))&&(!term||x.s.toLowerCase().includes(term)||x.k.toLowerCase().includes(term)));
   list.innerHTML=rows.map(x=>{const t=TAG[x._st];const lb=x.bn?'<span class="live-b">●LIVE</span>':'';
-    return '<div class="li'+(x.s===sel?' on':'')+'" data-s="'+x.s+'"><span class="star'+(favs.has(x.s)?' on':'')+'" onclick="toggleFav(\''+x.s+'\',event)">★</span><div class="sym">'+x.s+lb+'<small>'+esc(x.k)+'</small></div><span class="pill '+t[1]+'">'+t[0]+'</span>'+chgHtml(x.c)+'<span class="px num '+(x.c>=0?'up':(x.c==null?'':'down'))+'">'+x._disp+'</span></div>';
+    return '<div class="li'+(x.s===sel?' on':'')+'" data-s="'+x.s+'"><span class="star'+(favs.has(x.s)?' on':'')+'" onclick="toggleFav(\''+x.s+'\',event)">★</span><div class="sym">'+x.s+lb+'<small>'+esc(x.k)+'</small></div><span class="pill '+t[1]+'">'+t[0]+'</span>'+(x.c!=null?'<span class="dir '+(x.c>=0?'dir-long':'dir-short')+'">'+(x.c>=0?'롱':'숏')+'</span>':'')+chgHtml(x.c)+'<span class="px num '+(x.c>=0?'up':(x.c==null?'':'down'))+'">'+x._disp+'</span></div>';
   }).join('')||('<div class="li muted">'+((favOnly&&!term)?'즐겨찾기한 종목이 없어요 — 검색해서 별(★)을 눌러 추가하세요':'검색 결과 없음')+'</div>');
   var fc=document.getElementById('favchip'); if(fc)fc.classList.toggle('on',favOnly);
   cnt.textContent=rows.length+' / '+C.length+' 종목 · 크립토 27 실시간';
@@ -233,6 +242,7 @@ function showDetail(s){
   const chart='<a class="cbtn" href="https://www.onexcore.com/trading/'+x.s.toLowerCase()+'usdt" target="_blank" rel="noopener">📈 ONEXCORE 차트 열기</a>';
   let h='<button class="backbtn" onclick="document.body.classList.remove(\'detail-open\');window.scrollTo({top:0})">◀ 목록으로</button><h2>상세 — '+x.s+(x.bn?' <span class="live-b">●LIVE</span>':' <span class="muted" style="font-weight:500;text-transform:none">(스냅샷)</span>')+' <span class="muted" style="text-transform:none;font-weight:500">'+esc(x.k)+'</span> <span id="detailStar" class="star'+(favs.has(x.s)?' on':'')+'" title="즐겨찾기" onclick="toggleFav(\''+x.s+'\')">★</span></h2>';
   h+='<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span class="price num">'+x._disp+'</span>'+chgHtml(x.c)+'<span class="pill '+t[1]+'">'+t[0]+'</span></div>';
+  if(x.bn)h+='<div id="topsig" class="sigcard" style="display:none"></div>';
   if(x.bn){
     h+='<div class="tfrow"><button class="tf'+(chartOn?' on':'')+'" onclick="toggleChart()">'+(chartOn?'📉 차트끄기':'📈 차트보기')+'</button>';
     if(chartOn){h+=[['1m','1분'],['5m','5분'],['30m','30분'],['1h','1시간'],['4h','4시간'],['1d','1일']].map(function(a){return '<button class="tf'+(curInterval===a[0]?' on':'')+'" onclick="setTf(\''+a[0]+'\')">'+a[1]+'</button>';}).join('')+'<button class="tf" onclick="saveChart()">📷 저장</button>';}
@@ -364,6 +374,16 @@ async function fetchFlow(x){
      +'<div class="lqrow"><span class="muted">손익비 (매수가 기준)</span><span class="num">'+(rr>0?('약 '+rr.toFixed(1)+' : 1'):'-')+'</span></div>'
      +'<div class="muted" style="font-size:11px;margin-top:6px;line-height:1.5">회귀 채널·거래량 기반 계산값입니다. 확정 예측·매수 신호가 아니며, 진입·손절·목표는 본인 판단으로 조정하세요.</div></div>';
     box.innerHTML=h;
+    var tsEl=document.getElementById('topsig');
+    if(tsEl){
+      var dir=(sl>=0)?'long':'short', e,tg,sp,srr;
+      if(dir==='long'){e=lower;tg=upper;sp=stop;srr=(tg-e)/((e-sp)||1);}
+      else{e=upper;tg=lower;sp=upper+chH*0.15;srr=(e-tg)/((sp-e)||1);}
+      tsEl.className='sigcard '+(dir==='long'?'sig-long':'sig-short');
+      tsEl.style.display='block';
+      tsEl.innerHTML='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span class="sigdir '+(dir==='long'?'up':'down')+'">'+(dir==='long'?'▲ 롱 LONG':'▼ 숏 SHORT')+'</span><span class="muted" style="font-size:11.5px">차트 추세 기반 · 교육용</span></div>'
+        +'<div class="sigrow"><span class="muted">'+(dir==='long'?'매수 진입':'숏 진입')+' <b class="'+(dir==='long'?'up':'down')+'">'+fmt(e,d)+'</b></span><span class="muted">'+(dir==='long'?'매도 목표':'목표(커버)')+' <b>'+fmt(tg,d)+'</b></span><span class="muted">손절 <b class="'+(dir==='long'?'down':'up')+'">'+fmt(sp,d)+'</b></span><span class="muted">손익비 <b>'+(srr>0?('약 '+srr.toFixed(1)+':1'):'-')+'</b></span></div>';
+    }
   }catch(e){ box.innerHTML='<div class="muted" style="font-size:12px;padding:2px 0">수급 데이터를 불러오지 못했어요</div>'; }
 }
 function stamp(){const d=new Date(),p=n=>String(n).padStart(2,'0');
