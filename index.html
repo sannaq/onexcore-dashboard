@@ -203,10 +203,11 @@ function recalc(x){
   if(x.hi==null||x.lo==null){x._st='base';x._disp=x.p||(x.px!=null?fmt(x.px,x.dec||2):'—');return;}
   x._rp=Math.round((x.px-x.lo)/(x.hi-x.lo)*100);
   var c=(x.c==null?0:x.c), rp=x._rp, st;
-  if(c>=1.5) st=(rp>=90?'avoid':'buy');           // 상승 모멘텀(단, 초고점권은 추격주의)
-  else if(c<=-1.5) st='avoid';                     // 하락(주의)
-  else st=(rp>=80?'avoid':(rp<=30?'buy':'wait'));  // 횡보: 고점권 주의 / 저점권 관심 / 중간 관망
-  if(x.bp!=null){ if(x.bp<=32) st='avoid'; else if(x.bp>=62 && st==='wait') st='buy'; } // 호가 매수/매도세 보정
+  if(c<=-3) st='avoid';                 // 급락 → 주의
+  else if(rp>=65) st='avoid';           // 24h 상단권(추격 부담) → 주의
+  else if(rp<=45) st='buy';             // 24h 하단권(눌림·저점 관심) → 관심
+  else st=(c>=2?'buy':'wait');          // 중단: 강한 상승이면 관심, 아니면 관망
+  if(x.bp!=null){ if(x.bp<=35) st='avoid'; else if(x.bp>=60 && st==='wait') st='buy'; } // 호가 매수/매도세 보정
   x._st=st;
   x._disp=fmt(x.px,x.dec);
 }
