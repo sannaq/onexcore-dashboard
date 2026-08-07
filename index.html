@@ -184,7 +184,7 @@ function render(f){
     return '<div class="li'+(x.s===sel?' on':'')+'" data-s="'+x.s+'"><div class="sym">'+x.s+lb+'<small>'+esc(x.k)+'</small></div><span class="pill '+t[1]+'">'+t[0]+'</span>'+chgHtml(x.c)+'<span class="px num '+(x.c>=0?'up':(x.c==null?'':'down'))+'">'+x._disp+'</span></div>';
   }).join('')||'<div class="li muted">검색 결과 없음</div>';
   cnt.textContent=rows.length+' / '+C.length+' 종목 · 크립토 27 실시간';
-  [...list.querySelectorAll('.li[data-s]')].forEach(el=>el.onclick=()=>{sel=el.dataset.s;render(q.value);showDetail(sel);});
+  [...list.querySelectorAll('.li[data-s]')].forEach(el=>el.onclick=()=>{sel=el.dataset.s;render(q.value);showDetail(sel);if(window.innerWidth<=780)setTimeout(()=>det.scrollIntoView({behavior:'smooth',block:'start'}),40);});
 }
 function showDetail(s){
   const x=C.find(v=>v.s===s);if(!x){det.innerHTML='';return;}const t=TAG[x._st];const d=x.dec||2;
@@ -234,7 +234,7 @@ async function live(){
   stamp();render(q.value);if(sel)showDetail(sel);
 }
 q.oninput=()=>render(q.value);
-[...document.querySelectorAll('.chip')].forEach(c=>{const go=()=>{q.value=c.dataset.s;render(q.value);sel=c.dataset.s;showDetail(sel);};c.onclick=go;c.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}};});
+[...document.querySelectorAll('.chip')].forEach(c=>{const go=()=>{q.value=c.dataset.s;render(q.value);sel=c.dataset.s;showDetail(sel);if(window.innerWidth<=780)setTimeout(()=>det.scrollIntoView({behavior:'smooth',block:'start'}),40);};c.onclick=go;c.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}};});
 render('');showDetail('SOL');stamp();
 live();setInterval(live,45000);setInterval(stamp,1000);
 </script>
