@@ -72,6 +72,12 @@
   .lqcard{margin-top:12px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:11px 13px}
   .lqh{font-size:12px;font-weight:800;margin-bottom:6px}
   .lqrow{display:flex;justify-content:space-between;font-size:13px;padding:4px 0}
+  .flowcard{margin-top:12px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:11px 13px}
+  .rlab{display:flex;justify-content:space-between;font-size:13px;font-weight:800;margin-bottom:5px}
+  .rbar{height:9px;border-radius:5px;overflow:hidden;background:var(--down)}
+  .rbar span{display:block;height:100%;background:var(--up)}
+  .rsub{font-size:12.5px;color:var(--sub);margin-top:7px;line-height:1.5}
+  .rsub b{color:var(--txt)}
   .backbtn{display:none;align-items:center;gap:6px;margin:0 0 12px;padding:9px 14px;border-radius:9px;border:1px solid var(--line);background:var(--panel2);color:var(--txt);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
   @media(max-width:780px){.grid{grid-template-columns:1fr}.idx .v{font-size:19px}
     body:not(.detail-open) #detail{display:none}
@@ -210,7 +216,7 @@ function showDetail(s){
     h+='<div class="tfrow"><button class="tf'+(chartOn?' on':'')+'" onclick="toggleChart()">'+(chartOn?'📉 차트끄기':'📈 차트보기')+'</button>';
     if(chartOn){h+=[['1m','1분'],['5m','5분'],['30m','30분'],['1h','1시간'],['4h','4시간'],['1d','1일']].map(function(a){return '<button class="tf'+(curInterval===a[0]?' on':'')+'" onclick="setTf(\''+a[0]+'\')">'+a[1]+'</button>';}).join('')+'<button class="tf" onclick="saveChart()">📷 저장</button>';}
     h+='</div>';
-    if(chartOn){h+='<div class="chartlegend"><span class="lgd"><i style="border-color:#ff5b5b;border-top-style:dashed"></i>저항</span><span class="lgd"><i style="border-color:#2ec46b;border-top-style:dashed"></i>지지</span><span class="lgd"><i style="border-color:#4a9eff"></i>추세선(고·저)</span><span class="lgd"><i style="border-color:#a06bff;border-top-style:dotted"></i>피보</span><span style="margin-left:auto">스크롤·핀치 확대/축소</span></div><div id="tvchart"></div>';}
+    if(chartOn){h+='<div class="chartlegend"><span class="lgd"><i style="border-color:#ff5b5b;border-top-style:dashed"></i>저항</span><span class="lgd"><i style="border-color:#2ec46b;border-top-style:dashed"></i>지지</span><span class="lgd"><i style="border-color:#4a9eff"></i>추세선(고·저)</span><span class="lgd"><i style="border-color:#a06bff;border-top-style:dotted"></i>피보</span><span class="lgd"><i style="border-color:#ff9800"></i>매물대</span><span style="margin-left:auto">스크롤·핀치 확대/축소</span></div><div id="tvchart"></div>';}
   }
   if(x.hi!=null&&x.lo!=null){
     const span=x.hi-x.lo,f382=x.hi-0.382*span,f618=x.hi-0.618*span;
@@ -231,6 +237,7 @@ function showDetail(s){
       +'<div class="lqrow"><span class="muted">▼ 숏 관심 진입</span><span class="num">'+fmt(x.hi,d)+'</span></div>'
       +'<div class="lqrow"><span class="muted">└ 청산가 10x / 25x</span><span class="num up">'+fmt(x.hi*1.1,d)+' / '+fmt(x.hi*1.04,d)+'</span></div>'
       +'<div class="muted" style="font-size:11px;margin-top:6px;line-height:1.5">근사식: 롱 청산=진입×(1−1/레버리지), 숏 청산=진입×(1+1/레버리지). 수수료·유지증거금 제외한 대략값입니다.</div></div>'
+      +(x.bn?'<div id="flowbox" class="flowcard"><div class="muted" style="font-size:12px">롱·숏 & 매물대 불러오는 중…</div></div>':'')
       +chart;
     if(x.bn&&x.bp==null)fetchDepth(x);
   }else{
@@ -238,6 +245,7 @@ function showDetail(s){
   }
   det.innerHTML=h;
   if(x.bn&&chartOn&&window.LightweightCharts)drawChart(x);
+  if(x.bn)fetchFlow(x);
 }
 const FAPI='https://fapi.binance.com/fapi/v1/';
 let chartObj=null, curInterval='15m', chartTimer=null, chartOn=true;
@@ -269,6 +277,7 @@ async function drawChart(x){
     [[0.382,'0.382'],[0.5,'0.5'],[0.618,'0.618']].forEach(function(f){
       cs.createPriceLine({price:hi-f[0]*(hi-lo),color:'#a06bff',lineWidth:1,lineStyle:1,axisLabelVisible:false,title:'fib '+f[1]});
     });
+    var poc=volProfile(raw); if(poc)cs.createPriceLine({price:(poc.low+poc.high)/2,color:'#ff9800',lineWidth:2,lineStyle:0,axisLabelVisible:true,title:'매물대'});
     [['low','#4a9eff'],['high','#4a9eff']].forEach(function(cfg){
       const pv=pivots(data,3,cfg[0]);
       if(pv.length<2)return;
@@ -287,6 +296,39 @@ async function fetchDepth(x){
     const sum=a=>a.slice(0,10).reduce((s,r)=>s+ +r[1],0);const b=sum(d.bids),a=sum(d.asks);
     x.bp=Math.round(b/(b+a)*100);recalc(x);if(sel===x.s)showDetail(x.s);render(q.value);
   }catch(e){}
+}
+function volProfile(kl){
+  if(!Array.isArray(kl)||!kl.length)return null;
+  var lo=Infinity,hi=-Infinity;
+  kl.forEach(function(k){var l=+k[3],h=+k[2]; if(l<lo)lo=l; if(h>hi)hi=h;});
+  var bins=24, w=(hi-lo)/bins; if(!(w>0))return null;
+  var vol=new Array(bins).fill(0);
+  kl.forEach(function(k){var tp=(+k[2]+ +k[3]+ +k[4])/3, v=+k[5]; var idx=Math.floor((tp-lo)/w); if(idx<0)idx=0; if(idx>=bins)idx=bins-1; vol[idx]+=v;});
+  var mi=0; for(var i=1;i<bins;i++)if(vol[i]>vol[mi])mi=i;
+  return {low:lo+mi*w, high:lo+(mi+1)*w};
+}
+async function fetchFlow(x){
+  const box=document.getElementById('flowbox'); if(!box||!x.bn) return;
+  try{
+    const B='https://fapi.binance.com/futures/data/';
+    const r=await Promise.all([
+      fetch(B+'globalLongShortAccountRatio?symbol='+x.bn+'&period=5m&limit=1').then(r=>r.json()),
+      fetch(B+'topLongShortAccountRatio?symbol='+x.bn+'&period=5m&limit=1').then(r=>r.json()),
+      fetch(B+'takerlongshortRatio?symbol='+x.bn+'&period=5m&limit=1').then(r=>r.json()),
+      fetch(FAPI+'klines?symbol='+x.bn+'&interval=15m&limit=160').then(r=>r.json())
+    ]);
+    const g=r[0][0], tt=r[1][0], tk=r[2][0], kl=r[3];
+    const gL=+g.longAccount*100, gS=+g.shortAccount*100;
+    const tL=+tt.longAccount*100, tS=+tt.shortAccount*100;
+    const bV=+tk.buyVol, sV=+tk.sellVol, tot=bV+sV, bP=tot?bV/tot*100:50;
+    const poc=volProfile(kl), d=x.dec||2;
+    var h='<div class="lqh">롱·숏 & 수급 <span class="muted" style="font-weight:400;text-transform:none">(5분 · 바이낸스)</span></div>';
+    h+='<div class="rlab"><span class="up">롱 '+gL.toFixed(1)+'%</span><span class="down">'+gS.toFixed(1)+'% 숏</span></div><div class="rbar"><span style="width:'+gL.toFixed(1)+'%"></span></div>';
+    h+='<div class="rsub">Top Trader — <b class="up">롱 '+tL.toFixed(1)+'%</b> / <b class="down">숏 '+tS.toFixed(1)+'%</b></div>';
+    h+='<div class="rsub">Taker 거래량 — 매수 <b>'+bV.toFixed(2)+'</b> / 매도 <b>'+sV.toFixed(2)+'</b> <span class="'+(bP>=50?'up':'down')+'">('+(bP>=50?'매수 우위':'매도 우위')+')</span></div>';
+    if(poc)h+='<div class="rsub">📊 매물대 집중(POC) <b>'+fmt(poc.low,d)+' ~ '+fmt(poc.high,d)+'</b> — 이 구간 거래량 최다(지지·저항 역할↑)</div>';
+    box.innerHTML=h;
+  }catch(e){ box.innerHTML='<div class="muted" style="font-size:12px;padding:2px 0">수급 데이터를 불러오지 못했어요</div>'; }
 }
 function stamp(){const d=new Date(),p=n=>String(n).padStart(2,'0');
   document.getElementById('clock').textContent=p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());
