@@ -216,7 +216,7 @@ function showDetail(s){
     h+='<div class="tfrow"><button class="tf'+(chartOn?' on':'')+'" onclick="toggleChart()">'+(chartOn?'📉 차트끄기':'📈 차트보기')+'</button>';
     if(chartOn){h+=[['1m','1분'],['5m','5분'],['30m','30분'],['1h','1시간'],['4h','4시간'],['1d','1일']].map(function(a){return '<button class="tf'+(curInterval===a[0]?' on':'')+'" onclick="setTf(\''+a[0]+'\')">'+a[1]+'</button>';}).join('')+'<button class="tf" onclick="saveChart()">📷 저장</button>';}
     h+='</div>';
-    if(chartOn){h+='<div class="chartlegend"><span class="lgd"><i style="border-color:#ff5b5b;border-top-style:dashed"></i>저항</span><span class="lgd"><i style="border-color:#2ec46b;border-top-style:dashed"></i>지지</span><span class="lgd"><i style="border-color:#4a9eff"></i>추세선(고·저)</span><span class="lgd"><i style="border-color:#a06bff;border-top-style:dotted"></i>피보</span><span class="lgd"><i style="border-color:#ff9800"></i>매물대</span><span style="margin-left:auto">스크롤·핀치 확대/축소</span></div><div id="tvchart"></div>';}
+    if(chartOn){h+='<div class="chartlegend"><span class="lgd"><i style="border-color:#ff5b5b;border-top-style:dashed"></i>저항</span><span class="lgd"><i style="border-color:#2ec46b;border-top-style:dashed"></i>지지</span><span class="lgd"><i style="border-color:#4a9eff"></i>추세 채널</span><span class="lgd"><i style="border-color:#a06bff;border-top-style:dotted"></i>피보</span><span class="lgd"><i style="border-color:#ff9800"></i>매물대</span><span style="margin-left:auto">스크롤·핀치 확대/축소</span></div><div id="tvchart"></div>';}
   }
   if(x.hi!=null&&x.lo!=null){
     const span=x.hi-x.lo,f382=x.hi-0.382*span,f618=x.hi-0.618*span;
@@ -278,15 +278,15 @@ async function drawChart(x){
       cs.createPriceLine({price:hi-f[0]*(hi-lo),color:'#a06bff',lineWidth:1,lineStyle:1,axisLabelVisible:false,title:'fib '+f[1]});
     });
     var poc=volProfile(raw); if(poc)cs.createPriceLine({price:(poc.low+poc.high)/2,color:'#ff9800',lineWidth:2,lineStyle:0,axisLabelVisible:true,title:'매물대'});
-    [['low','#4a9eff'],['high','#4a9eff']].forEach(function(cfg){
-      const pv=pivots(data,3,cfg[0]);
-      if(pv.length<2)return;
-      const a=pv[pv.length-2], b=pv[pv.length-1];
-      const pa=cfg[0]==='low'?data[a].low:data[a].high, pb=cfg[0]==='low'?data[b].low:data[b].high;
-      const slope=(pb-pa)/(b-a);
-      const s=chart.addLineSeries({color:cfg[1],lineWidth:2,lastValueVisible:false,priceLineVisible:false,crosshairMarkerVisible:false});
-      s.setData(data.map((d,i)=>({time:d.time,value:pa+slope*(i-a)})));
-    });
+    (function(){
+      const n=data.length; let sx=0,sy=0,sxy=0,sxx=0;
+      data.forEach((dd,i)=>{sx+=i;sy+=dd.close;sxy+=i*dd.close;sxx+=i*i;});
+      const den=(n*sxx-sx*sx), sl=den?(n*sxy-sx*sy)/den:0, itc=(sy-sl*sx)/n;
+      let above=-Infinity, below=Infinity;
+      data.forEach((dd,i)=>{const r=itc+sl*i; if(dd.high-r>above)above=dd.high-r; if(dd.low-r<below)below=dd.low-r;});
+      const mk=(off,w,style)=>{const s=chart.addLineSeries({color:'#4a9eff',lineWidth:w,lineStyle:style,lastValueVisible:false,priceLineVisible:false,crosshairMarkerVisible:false});s.setData(data.map((dd,i)=>({time:dd.time,value:itc+sl*i+off})));};
+      mk(above,2,0); mk(0,1,2); mk(below,2,0);
+    })();
     chart.timeScale().fitContent();
     chartTimer=setInterval(function(){ fetch(url).then(r=>r.json()).then(function(rw){ if(Array.isArray(rw)) cs.setData(toBars(rw)); }).catch(function(){}); }, 30000);
   }catch(e){el.innerHTML='<div class="muted" style="padding:24px;text-align:center;font-size:12px">차트 데이터를 불러오지 못했어요</div>';}
