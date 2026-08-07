@@ -61,7 +61,11 @@
   .disc{background:var(--downbg);border:1px solid color-mix(in srgb,var(--down) 30%,transparent);border-radius:12px;padding:12px 14px;font-size:12px;color:var(--down);line-height:1.6}
   .foot{color:var(--sub);font-size:11.5px;margin-top:8px;text-align:center}
   .grid{display:grid;grid-template-columns:1fr 1.1fr;gap:14px}
-  @media(max-width:780px){.grid{grid-template-columns:1fr}.idx .v{font-size:19px}}
+  .backbtn{display:none;align-items:center;gap:6px;margin:0 0 12px;padding:9px 14px;border-radius:9px;border:1px solid var(--line);background:var(--panel2);color:var(--txt);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+  @media(max-width:780px){.grid{grid-template-columns:1fr}.idx .v{font-size:19px}
+    body:not(.detail-open) #detail{display:none}
+    body.detail-open .searchcard{display:none}
+    .backbtn{display:inline-flex}}
 </style>
 </head>
 <body>
@@ -77,7 +81,7 @@
 
 <div class="view on" id="v-coins">
   <div class="grid">
-    <div class="card">
+    <div class="card searchcard">
       <h2>종목 검색 <span class="muted" id="cinfo" style="text-transform:none;font-weight:500">· 55종목</span></h2>
       <input id="q" placeholder="심볼·이름 (예: BTC, 솔라나, TSLA)" autocomplete="off"/>
       <div class="chips">
@@ -184,12 +188,12 @@ function render(f){
     return '<div class="li'+(x.s===sel?' on':'')+'" data-s="'+x.s+'"><div class="sym">'+x.s+lb+'<small>'+esc(x.k)+'</small></div><span class="pill '+t[1]+'">'+t[0]+'</span>'+chgHtml(x.c)+'<span class="px num '+(x.c>=0?'up':(x.c==null?'':'down'))+'">'+x._disp+'</span></div>';
   }).join('')||'<div class="li muted">검색 결과 없음</div>';
   cnt.textContent=rows.length+' / '+C.length+' 종목 · 크립토 27 실시간';
-  [...list.querySelectorAll('.li[data-s]')].forEach(el=>el.onclick=()=>{sel=el.dataset.s;render(q.value);showDetail(sel);if(window.innerWidth<=780)setTimeout(()=>det.scrollIntoView({behavior:'smooth',block:'start'}),40);});
+  [...list.querySelectorAll('.li[data-s]')].forEach(el=>el.onclick=()=>{sel=el.dataset.s;render(q.value);showDetail(sel);if(window.innerWidth<=780){document.body.classList.add('detail-open');window.scrollTo({top:0,behavior:'smooth'});}});
 }
 function showDetail(s){
   const x=C.find(v=>v.s===s);if(!x){det.innerHTML='';return;}const t=TAG[x._st];const d=x.dec||2;
   const chart='<a class="cbtn" href="https://www.onexcore.com/trading/'+x.s.toLowerCase()+'usdt" target="_blank" rel="noopener">📈 ONEXCORE 차트 열기</a>';
-  let h='<h2>상세 — '+x.s+(x.bn?' <span class="live-b">●LIVE</span>':' <span class="muted" style="font-weight:500;text-transform:none">(스냅샷)</span>')+' <span class="muted" style="text-transform:none;font-weight:500">'+esc(x.k)+'</span></h2>';
+  let h='<button class="backbtn" onclick="document.body.classList.remove(\'detail-open\');window.scrollTo({top:0})">◀ 목록으로</button><h2>상세 — '+x.s+(x.bn?' <span class="live-b">●LIVE</span>':' <span class="muted" style="font-weight:500;text-transform:none">(스냅샷)</span>')+' <span class="muted" style="text-transform:none;font-weight:500">'+esc(x.k)+'</span></h2>';
   h+='<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span class="price num">'+x._disp+'</span>'+chgHtml(x.c)+'<span class="pill '+t[1]+'">'+t[0]+'</span></div>';
   if(x.hi!=null&&x.lo!=null){
     const span=x.hi-x.lo,f382=x.hi-0.382*span,f618=x.hi-0.618*span;
@@ -234,7 +238,7 @@ async function live(){
   stamp();render(q.value);if(sel)showDetail(sel);
 }
 q.oninput=()=>render(q.value);
-[...document.querySelectorAll('.chip')].forEach(c=>{const go=()=>{q.value=c.dataset.s;render(q.value);sel=c.dataset.s;showDetail(sel);if(window.innerWidth<=780)setTimeout(()=>det.scrollIntoView({behavior:'smooth',block:'start'}),40);};c.onclick=go;c.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}};});
+[...document.querySelectorAll('.chip')].forEach(c=>{const go=()=>{q.value=c.dataset.s;render(q.value);sel=c.dataset.s;showDetail(sel);if(window.innerWidth<=780){document.body.classList.add('detail-open');window.scrollTo({top:0,behavior:'smooth'});}};c.onclick=go;c.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}};});
 render('');showDetail('SOL');stamp();
 live();setInterval(live,45000);setInterval(stamp,1000);
 </script>
