@@ -348,6 +348,21 @@ async function fetchFlow(x){
     h+='<div class="rsub">Top Trader — <b class="up">롱 '+tL.toFixed(1)+'%</b> / <b class="down">숏 '+tS.toFixed(1)+'%</b></div>';
     h+='<div class="rsub">Taker 거래량 — 매수 <b>'+bV.toFixed(2)+'</b> / 매도 <b>'+sV.toFixed(2)+'</b> <span class="'+(bP>=50?'up':'down')+'">('+(bP>=50?'매수 우위':'매도 우위')+')</span></div>';
     if(poc)h+='<div class="rsub">📊 매물대 집중(POC) <b>'+fmt(poc.low,d)+' ~ '+fmt(poc.high,d)+'</b> — 이 구간 거래량 최다(지지·저항 역할↑)</div>';
+    // 차트 기반 참고 레벨 (회귀 채널)
+    var n=kl.length, sx=0,sy=0,sxy=0,sxx=0;
+    for(var i=0;i<n;i++){var cl=+kl[i][4]; sx+=i; sy+=cl; sxy+=i*cl; sxx+=i*i;}
+    var den=(n*sxx-sx*sx), sl=den?(n*sxy-sx*sy)/den:0, itc=(sy-sl*sx)/n;
+    var above=-1e18, below=1e18;
+    for(var i2=0;i2<n;i2++){var rr0=itc+sl*i2, hh=+kl[i2][2]-rr0, ll=+kl[i2][3]-rr0; if(hh>above)above=hh; if(ll<below)below=ll;}
+    var last=itc+sl*(n-1), lower=last+below, upper=last+above, chH=(above-below)||1;
+    var stop=lower-chH*0.15, ext=upper+chH*0.5, rr=(upper-lower)/((lower-stop)||1);
+    h+='<div style="border-top:1px solid var(--line);margin-top:10px;padding-top:9px"><div class="lqh">📌 차트 기반 참고 레벨 <span class="muted" style="font-weight:400;text-transform:none">(교육용·매매 지시 아님)</span></div>'
+     +'<div class="lqrow"><span class="muted">🟢 매수 관심가 (지지)</span><span class="num up">'+fmt(lower,d)+'</span></div>'
+     +'<div class="lqrow"><span class="muted">✕ 손절 (무효화)</span><span class="num down">'+fmt(stop,d)+'</span></div>'
+     +'<div class="lqrow"><span class="muted">🎯 1차 매도 목표 (저항)</span><span class="num">'+fmt(upper,d)+'</span></div>'
+     +'<div class="lqrow"><span class="muted">🎯 2차 매도 목표 (확장)</span><span class="num">'+fmt(ext,d)+'</span></div>'
+     +'<div class="lqrow"><span class="muted">손익비 (매수가 기준)</span><span class="num">'+(rr>0?('약 '+rr.toFixed(1)+' : 1'):'-')+'</span></div>'
+     +'<div class="muted" style="font-size:11px;margin-top:6px;line-height:1.5">회귀 채널·거래량 기반 계산값입니다. 확정 예측·매수 신호가 아니며, 진입·손절·목표는 본인 판단으로 조정하세요.</div></div>';
     box.innerHTML=h;
   }catch(e){ box.innerHTML='<div class="muted" style="font-size:12px;padding:2px 0">수급 데이터를 불러오지 못했어요</div>'; }
 }
