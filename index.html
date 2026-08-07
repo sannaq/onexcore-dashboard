@@ -4,6 +4,7 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>ONEXCORE 선물 대시보드 — 실시간</title>
+<script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 <style>
   :root{--bg:#f6f7f9;--panel:#fff;--panel2:#eef1f5;--line:#e4e7ee;--txt:#161a21;--sub:#697180;--accent:#2f6bff;--up:#12a150;--down:#e5484d;--wait:#d9820a;--upbg:rgba(18,161,80,.1);--downbg:rgba(229,72,77,.1);}
   @media (prefers-color-scheme:dark){:root{--bg:#0d1017;--panel:#161b24;--panel2:#1c222d;--line:#272d39;--txt:#e8ecf3;--sub:#8790a1;--accent:#4a9eff;--up:#2ec46b;--down:#ff5b5b;--wait:#ffb020;--upbg:rgba(46,196,107,.12);--downbg:rgba(255,91,91,.12);}}
@@ -61,6 +62,10 @@
   .disc{background:var(--downbg);border:1px solid color-mix(in srgb,var(--down) 30%,transparent);border-radius:12px;padding:12px 14px;font-size:12px;color:var(--down);line-height:1.6}
   .foot{color:var(--sub);font-size:11.5px;margin-top:8px;text-align:center}
   .grid{display:grid;grid-template-columns:1fr 1.1fr;gap:14px}
+  #tvchart{width:100%;height:300px;margin:8px 0 4px;border:1px solid var(--line);border-radius:10px;overflow:hidden;position:relative}
+  .chartlegend{display:flex;gap:12px;flex-wrap:wrap;font-size:11.5px;color:var(--sub);margin:12px 0 2px;align-items:center}
+  .lgd{display:inline-flex;align-items:center;gap:5px}
+  .lgd i{width:15px;height:0;border-top:2px solid;display:inline-block}
   .backbtn{display:none;align-items:center;gap:6px;margin:0 0 12px;padding:9px 14px;border-radius:9px;border:1px solid var(--line);background:var(--panel2);color:var(--txt);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
   @media(max-width:780px){.grid{grid-template-columns:1fr}.idx .v{font-size:19px}
     body:not(.detail-open) #detail{display:none}
@@ -195,6 +200,7 @@ function showDetail(s){
   const chart='<a class="cbtn" href="https://www.onexcore.com/trading/'+x.s.toLowerCase()+'usdt" target="_blank" rel="noopener">📈 ONEXCORE 차트 열기</a>';
   let h='<button class="backbtn" onclick="document.body.classList.remove(\'detail-open\');window.scrollTo({top:0})">◀ 목록으로</button><h2>상세 — '+x.s+(x.bn?' <span class="live-b">●LIVE</span>':' <span class="muted" style="font-weight:500;text-transform:none">(스냅샷)</span>')+' <span class="muted" style="text-transform:none;font-weight:500">'+esc(x.k)+'</span></h2>';
   h+='<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span class="price num">'+x._disp+'</span>'+chgHtml(x.c)+'<span class="pill '+t[1]+'">'+t[0]+'</span></div>';
+  if(x.bn){h+='<div class="chartlegend"><span class="lgd"><i style="border-color:#ff5b5b;border-top-style:dashed"></i>저항</span><span class="lgd"><i style="border-color:#4a9eff"></i>추세</span><span class="lgd"><i style="border-color:#2ec46b;border-top-style:dashed"></i>지지</span><span style="margin-left:auto">스크롤·핀치로 확대/축소</span></div><div id="tvchart"></div>';}
   if(x.hi!=null&&x.lo!=null){
     const span=x.hi-x.lo,f382=x.hi-0.382*span,f618=x.hi-0.618*span;
     const bpTxt=x.bp!=null?('<span class="fill"><span style="width:'+x.bp+'%"></span></span> '+x.bp+'%'):'<span class="muted">로딩…</span>';
@@ -213,8 +219,33 @@ function showDetail(s){
     h+='<div style="margin-top:14px;font-size:13px;color:var(--sub);line-height:1.6">📊 주식형 스냅샷입니다(실시간 미지원). 정밀 시나리오는 Claude 채팅에 <code>'+x.s+' 분석해줘</code>.</div>'+chart;
   }
   det.innerHTML=h;
+  if(x.bn&&window.LightweightCharts)drawChart(x);
 }
 const FAPI='https://fapi.binance.com/fapi/v1/';
+let chartObj=null;
+async function drawChart(x){
+  const el=document.getElementById('tvchart'); if(!el||!window.LightweightCharts) return;
+  if(chartObj){try{chartObj.remove()}catch(e){} chartObj=null;}
+  const dark=root.getAttribute('data-theme')?root.getAttribute('data-theme')==='dark':sysDark();
+  const grid=dark?'#222a36':'#eceef3', bd=dark?'#2a3240':'#dfe3ea', txt=dark?'#8790a1':'#697180';
+  const chart=LightweightCharts.createChart(el,{autoSize:true,layout:{background:{color:'transparent'},textColor:txt,fontSize:11},grid:{vertLines:{color:grid},horzLines:{color:grid}},timeScale:{timeVisible:true,secondsVisible:false,borderColor:bd},rightPriceScale:{borderColor:bd},crosshair:{mode:0}});
+  chartObj=chart;
+  const cs=chart.addCandlestickSeries({upColor:'#2ec46b',downColor:'#ff5b5b',borderVisible:false,wickUpColor:'#2ec46b',wickDownColor:'#ff5b5b'});
+  try{
+    const raw=await fetch(FAPI+'klines?symbol='+x.bn+'&interval=15m&limit=160').then(r=>r.json());
+    if(!Array.isArray(raw))throw 0;
+    const data=raw.map(k=>({time:Math.floor(k[0]/1000),open:+k[1],high:+k[2],low:+k[3],close:+k[4]}));
+    cs.setData(data);
+    cs.createPriceLine({price:x.hi,color:'#ff5b5b',lineWidth:1,lineStyle:2,axisLabelVisible:true,title:'저항'});
+    cs.createPriceLine({price:x.lo,color:'#2ec46b',lineWidth:1,lineStyle:2,axisLabelVisible:true,title:'지지'});
+    const n=data.length;let sx=0,sy=0,sxy=0,sxx=0;
+    data.forEach((d,i)=>{sx+=i;sy+=d.close;sxy+=i*d.close;sxx+=i*i;});
+    const den=(n*sxx-sx*sx),slope=den?(n*sxy-sx*sy)/den:0,intr=(sy-slope*sx)/n;
+    const ts=chart.addLineSeries({color:'#4a9eff',lineWidth:2,lastValueVisible:false,priceLineVisible:false,crosshairMarkerVisible:false});
+    ts.setData(data.map((d,i)=>({time:d.time,value:intr+slope*i})));
+    chart.timeScale().fitContent();
+  }catch(e){el.innerHTML='<div class="muted" style="padding:24px;text-align:center;font-size:12px">차트 데이터를 불러오지 못했어요</div>';}
+}
 async function fetchDepth(x){
   try{const d=await fetch(FAPI+'depth?symbol='+x.bn+'&limit=20').then(r=>r.json());
     const sum=a=>a.slice(0,10).reduce((s,r)=>s+ +r[1],0);const b=sum(d.bids),a=sum(d.asks);
