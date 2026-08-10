@@ -95,6 +95,12 @@
   .sigdir{font-size:18px;font-weight:800}
   .sigrow{display:flex;gap:14px;flex-wrap:wrap;margin-top:7px;font-size:13px}
   .sigrow b{font-variant-numeric:tabular-nums;color:var(--txt)}
+  .lh{font-size:15px;font-weight:800;margin:14px 0 4px}
+  .lh:first-child{margin-top:0}
+  .lp{font-size:13px;color:var(--sub);line-height:1.65;margin:0 0 4px}
+  .lp b{color:var(--txt)}
+  .lgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:700px){.lgrid{grid-template-columns:1fr}}
   .backbtn{display:none;align-items:center;gap:6px;margin:0 0 12px;padding:9px 14px;border-radius:9px;border:1px solid var(--line);background:var(--panel2);color:var(--txt);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
   @media(max-width:780px){.grid{grid-template-columns:1fr}.idx .v{font-size:19px}
     body:not(.detail-open) #detail{display:none}
@@ -114,6 +120,7 @@
 <div class="tabs">
   <button class="tab on" data-tab="coins">종목 분석</button>
   <button class="tab" data-tab="market">미국 증시</button>
+  <button class="tab" data-tab="learn">기초 자료</button>
 </div>
 
 <div class="view on" id="v-coins">
@@ -156,6 +163,67 @@
     <h2>미국 증시, 무엇을 봐야 하나</h2>
     <ul class="chk"><li><b>주요 지수 방향</b> · <b>공포·탐욕</b> · <b>섹터 로테이션</b> · <b>10년물 금리·달러</b> · <b>BTC–나스닥 상관</b></li></ul>
     <p class="muted" style="font-size:11.5px;margin:8px 0 0">※ 미국 지수/심리 실시간화는 별도 API가 필요해 현재 스냅샷입니다.</p>
+  </div>
+</div>
+
+<div class="view" id="v-learn">
+  <div class="lgrid">
+    <div class="card">
+      <h2>📊 차트 보는 법</h2>
+      <div class="lh">캔들(봉)</div>
+      <p class="lp">한 봉 = 시가·고가·저가·종가. <b>초록=상승(종가>시가)</b>, <b>빨강=하락</b>. 몸통은 시-종가 폭, 위아래 꼬리는 고가·저가. 긴 아래꼬리=매수 방어, 긴 위꼬리=매도 압박.</p>
+      <div class="lh">지지 / 저항</div>
+      <p class="lp"><b>지지</b>=내려오다 멈추는 가격대(매수세), <b>저항</b>=오르다 막히는 가격대(매도세). 한 번 뚫리면 <b>역할 전환</b>(저항→지지). 대시보드 차트의 빨강/초록 점선이 24h 저항·지지.</p>
+      <div class="lh">추세선 · 채널</div>
+      <p class="lp">저점끼리·고점끼리 이으면 추세선. 평행하면 <b>채널</b> — 상단=저항, 하단=지지. 상승채널이면 하단 매수·상단 매도가 기본 시나리오. (파란 선)</p>
+      <div class="lh">피보나치 되돌림</div>
+      <p class="lp">상승 후 눌릴 때 <b>0.382 / 0.5 / 0.618</b>에서 지지받는 경향. 0.618을 '황금 되돌림'이라 부름(보라 점선).</p>
+      <div class="lh">이동평균 · 거래량 · 지표</div>
+      <p class="lp"><b>이동평균</b>: 단기선이 장기선 위=상승(정배열). <b>거래량</b>: 돌파에 거래량 실리면 신뢰↑, 없으면 가짜돌파 의심. <b>RSI</b>: 70↑ 과매수·30↓ 과매도. <b>MACD</b>: 시그널선 상향돌파=매수 신호(후행).</p>
+    </div>
+
+    <div class="card">
+      <h2>⚙️ 선물 기초</h2>
+      <div class="lh">롱 / 숏</div>
+      <p class="lp"><b>롱</b>=오를 것에 베팅(싸게 사서 비싸게), <b>숏</b>=내릴 것에 베팅(비싸게 팔고 싸게 되사기). 선물은 양방향 다 수익 가능.</p>
+      <div class="lh">레버리지</div>
+      <p class="lp">증거금 대비 배율. 10배면 10% 역행에 청산, 100배면 <b>1%만 역행해도 청산</b>. 배율↑ = 청산가가 진입가에 붙음. 초보는 3~5배 권장.</p>
+      <div class="lh">증거금 · 청산</div>
+      <p class="lp">포지션 유지에 필요한 예치금이 증거금. 손실이 증거금을 넘기 직전 강제청산. <b>격리</b>=그 포지션 증거금만 손실, <b>교차</b>=계정 전체가 담보.</p>
+      <div class="lh">펀딩비</div>
+      <p class="lp">무기한 선물이 현물가에 붙도록 롱↔숏이 8시간마다 주고받는 수수료. +면 롱이 숏에게 지불. 방향 맞아도 펀딩 누적으로 새어나갈 수 있음.</p>
+      <div class="lh">청산가 근사식</div>
+      <p class="lp">롱 청산 ≈ 진입×(1−1/레버리지), 숏 청산 ≈ 진입×(1+1/레버리지). (수수료·유지증거금 제외 대략값)</p>
+    </div>
+
+    <div class="card">
+      <h2>🛡️ 리스크 관리 (제일 중요)</h2>
+      <div class="lh">손절은 필수</div>
+      <p class="lp">진입과 <b>동시에</b> 손절을 정한다. "판단이 틀렸다"는 자리(지지 이탈 등)에 둔다. 손절 없는 매매가 계좌를 날린다.</p>
+      <div class="lh">손익비 (R:R)</div>
+      <p class="lp">잃을 것 대비 벌 것의 비율. <b>최소 1:2</b> 이상만 진입. 손익비가 좋으면 <b>승률 40%로도 수익</b>이 난다.</p>
+      <div class="lh">1~2% 룰 (포지션 크기)</div>
+      <p class="lp">한 매매 손실을 계좌의 <b>1~2%로 제한</b>. 수량 = 허용손실 ÷ (진입가−손절가). 이러면 10연패해도 계좌가 산다.</p>
+      <div class="lh">흔한 실수</div>
+      <p class="lp">풀시드·고배율, 손절 미설정, 물타기, 뇌동/복수매매, 오버트레이딩. 대다수 리테일이 이걸로 잃는다(선물 트레이더 70~97% 손실).</p>
+    </div>
+
+    <div class="card">
+      <h2>📖 이 대시보드 용어</h2>
+      <div class="lh">관심 / 관망 / 주의</div>
+      <p class="lp"><b>관심</b>=24h 하단권(눌림·저점 관심) 또는 강한 상승. <b>주의</b>=상단권(추격 부담)·급락. <b>관망</b>=중단 중립. 매수/매도 신호가 아니라 기술적 위치 표시.</p>
+      <div class="lh">롱 / 숏 방향</div>
+      <p class="lp">차트 <b>추세(회귀 채널 기울기)</b> 기준. 상승추세=롱(하단 매수→상단 목표), 하락추세=숏(상단 매도→하단 목표).</p>
+      <div class="lh">매물대 (POC)</div>
+      <p class="lp">거래량이 가장 많이 쌓인 가격대(주황선). 이 구간은 지지·저항 역할을 크게 한다.</p>
+      <div class="lh">매수세(호가) · 롱숏 비율</div>
+      <p class="lp"><b>매수세</b>=상위 10호가 매수/매도 잔량 비율. <b>롱숏 비율·Top Trader·Taker</b>=바이낸스 실제 포지션·체결 데이터로 시장 쏠림 파악(극단값은 역방향 청산 주의).</p>
+      <div class="lh">참고 레벨 · 손익비</div>
+      <p class="lp">회귀채널·거래량으로 계산한 매수/목표/손절. <b>전부 교육용 참고값</b>이며 확정 예측·매매 지시가 아니다.</p>
+    </div>
+  </div>
+  <div class="card">
+    <div class="lp" style="text-align:center">⚠️ 이 자료는 <b>교육용</b>입니다. 코인 선물은 원금 전액 손실이 가능한 고위험 상품이며, 어떤 지표도 미래를 보장하지 않습니다. 소액·저배율로 충분히 연습한 뒤, 항상 손절과 함께 하세요.</div>
   </div>
 </div>
 
