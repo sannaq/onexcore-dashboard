@@ -95,8 +95,19 @@
   .sigdir{font-size:18px;font-weight:800}
   .sigrow{display:flex;gap:14px;flex-wrap:wrap;margin-top:7px;font-size:13px}
   .sigrow b{font-variant-numeric:tabular-nums;color:var(--txt)}
-  .lh{font-size:15px;font-weight:800;margin:14px 0 4px}
+  .lh{font-size:15px;font-weight:800;margin:14px 0 4px;cursor:pointer;display:inline-block}
   .lh:first-child{margin-top:0}
+  .lh:hover{color:var(--accent)}
+  .lh::after{content:' ›';color:var(--sub);font-weight:400}
+  .lmodal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:1000;padding:16px}
+  .lmodal.on{display:flex}
+  .lmbox{background:var(--panel);border:1px solid var(--line);border-radius:14px;max-width:520px;width:100%;max-height:86vh;overflow:auto;padding:18px 20px}
+  .lmbox h3{margin:0 0 12px;font-size:18px}
+  .lmsvg{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:14px}
+  .lmd{font-size:13.5px;color:var(--txt);line-height:1.75}
+  .lmd b{color:var(--txt)}.lmd .muted{color:var(--sub)}
+  .lmclose{float:right;cursor:pointer;color:var(--sub);font-size:22px;line-height:1;margin:-4px -4px 0 0}
+  .lmclose:hover{color:var(--txt)}
   .lp{font-size:13px;color:var(--sub);line-height:1.65;margin:0 0 4px}
   .lp b{color:var(--txt)}
   .lgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
@@ -504,6 +515,42 @@ async function fetchNews(){var box=document.getElementById('newsbox'); if(!box)r
   }catch(e){box.innerHTML='<div class="muted" style="font-size:12px;padding:4px 0">뉴스를 불러오지 못했어요</div>';}
 }
 fetchNews();setInterval(fetchNews,300000);
+
+/* ---- 기초자료 상세 팝업 (다이어그램 + 설명) ---- */
+var SVG_CANDLE='<svg viewBox="0 0 320 175" style="width:100%;height:auto;color:var(--sub)"><line x1="95" y1="22" x2="95" y2="150" stroke="#26a69a" stroke-width="2"/><rect x="82" y="58" width="26" height="56" rx="2" fill="#26a69a"/><text x="95" y="14" text-anchor="middle" font-size="11" fill="#26a69a">양봉(상승)</text><line x1="225" y1="30" x2="225" y2="160" stroke="#ef5350" stroke-width="2"/><rect x="212" y="60" width="26" height="56" rx="2" fill="#ef5350"/><text x="225" y="22" text-anchor="middle" font-size="11" fill="#ef5350">음봉(하락)</text><text x="116" y="27" font-size="10" fill="currentColor">← 고가(위꼬리)</text><text x="116" y="152" font-size="10" fill="currentColor">← 저가(아래꼬리)</text><text x="116" y="64" font-size="10" fill="currentColor">← 종가</text><text x="116" y="116" font-size="10" fill="currentColor">← 시가</text><text x="12" y="86" font-size="10" fill="currentColor">몸통</text><text x="12" y="100" font-size="10" fill="currentColor">=시~종가</text></svg>';
+var SVG_SR='<svg viewBox="0 0 320 165" style="width:100%;height:auto;color:var(--sub)"><line x1="18" y1="42" x2="302" y2="42" stroke="#ef5350" stroke-width="2" stroke-dasharray="6 4"/><text x="22" y="35" font-size="10" fill="#ef5350">저항 — 오르다 막히는 자리</text><line x1="18" y1="128" x2="302" y2="128" stroke="#26a69a" stroke-width="2" stroke-dasharray="6 4"/><text x="22" y="143" font-size="10" fill="#26a69a">지지 — 내리다 멈추는 자리</text><polyline points="18,118 68,50 108,124 158,48 208,126 258,52 300,86" fill="none" stroke="var(--accent)" stroke-width="2"/></svg>';
+var SVG_CH='<svg viewBox="0 0 320 165" style="width:100%;height:auto;color:var(--sub)"><line x1="18" y1="118" x2="302" y2="38" stroke="var(--accent)" stroke-width="2"/><line x1="18" y1="150" x2="302" y2="70" stroke="var(--accent)" stroke-width="2"/><text x="150" y="40" font-size="10" fill="#ef5350">상단=저항(매도 목표)</text><text x="24" y="163" font-size="10" fill="#26a69a">하단=지지(매수 관심)</text><polyline points="18,138 58,120 98,128 138,96 178,106 218,74 258,84 300,56" fill="none" stroke="var(--txt)" stroke-width="1.6" opacity="0.75"/></svg>';
+var SVG_FIB='<svg viewBox="0 0 320 180" style="width:100%;height:auto;color:var(--sub)"><g stroke="var(--sub)" stroke-width="1" opacity="0.6"><line x1="70" y1="28" x2="304" y2="28"/><line x1="70" y1="70" x2="304" y2="70"/><line x1="70" y1="92" x2="304" y2="92"/><line x1="70" y1="112" x2="304" y2="112"/><line x1="70" y1="162" x2="304" y2="162"/></g><line x1="70" y1="112" x2="304" y2="112" stroke="#a06bff" stroke-width="2"/><text x="2" y="31" font-size="9" fill="currentColor">1.0 고점</text><text x="2" y="73" font-size="9" fill="currentColor">0.382</text><text x="2" y="95" font-size="9" fill="currentColor">0.5</text><text x="2" y="115" font-size="9" fill="#a06bff">0.618★</text><text x="2" y="165" font-size="9" fill="currentColor">0 저점</text><polyline points="70,162 150,28 210,112 304,44" fill="none" stroke="var(--accent)" stroke-width="2"/></svg>';
+var LMAP={
+ "캔들(봉)":{t:"캔들(봉) 읽는 법",svg:SVG_CANDLE,d:"봉 하나는 일정 시간의 <b>시가·고가·저가·종가</b>를 담습니다. <b>초록(양봉)</b>은 종가>시가(그 시간 상승), <b>빨강(음봉)</b>은 하락. 굵은 <b>몸통</b>은 시가~종가 폭, 가는 <b>꼬리</b>는 그 시간의 최고·최저가입니다.<br><br>· 긴 <b>아래꼬리</b> = 밀렸다가 매수세가 되받음(지지 신호)<br>· 긴 <b>위꼬리</b> = 올랐다가 매도세에 눌림(저항 신호)<br>· 몸통 없는 <b>도지</b> = 매수·매도 균형(전환 가능)<br><span class='muted'>캔들 1개로 판단 금지 — 위치·거래량·맥락과 함께 보세요.</span>"},
+ "지지 / 저항":{t:"지지 / 저항",svg:SVG_SR,d:"<b>지지</b>는 가격이 내려오다 매수세로 멈추는 가격대, <b>저항</b>은 오르다 매도세에 막히는 가격대입니다. 여러 번 닿을수록 강합니다.<br><br>· 한 번 <b>뚫리면 역할이 바뀜</b>(저항 돌파 → 지지로).<br>· 크립토는 <b>가짜 돌파(fakeout)</b>가 흔해, 종가 기준으로 확인하고 손절을 둡니다.<br>· 대시보드 차트의 빨강/초록 점선이 24h 저항·지지입니다."},
+ "추세선 · 채널":{t:"추세선 · 채널",svg:SVG_CH,d:"저점끼리(상승) 또는 고점끼리(하락) 이으면 <b>추세선</b>, 같은 기울기의 두 선이면 <b>채널</b>입니다.<br><br>· 상승 채널: <b>하단=지지(매수 관심)</b>, <b>상단=저항(매도 목표)</b>.<br>· 가격이 채널 안에서 오르내리다 <b>상단 돌파=가속</b>, <b>하단 이탈=추세 전환</b> 신호.<br>· 대시보드는 회귀 채널(파란 3선: 상단·중앙·하단)으로 자동 표시합니다."},
+ "피보나치 되돌림":{t:"피보나치 되돌림",svg:SVG_FIB,d:"상승(또는 하락) 후 되돌릴 때 <b>0.382 / 0.5 / 0.618</b> 지점에서 지지/저항받는 경향을 이용합니다. 특히 <b>0.618(황금 되돌림)</b>을 눌림목 매수 관심 구간으로 많이 봅니다.<br><br>· 다른 근거(지지선·매물대)와 <b>겹칠수록</b> 신뢰↑.<br>· 반드시 멈추는 자리는 아니며, 확인 후 진입이 안전합니다."},
+ "이동평균 · 거래량 · 지표":{t:"이동평균 · 거래량 · 보조지표",d:"<b>이동평균(MA)</b>: 평균 가격선. 단기선이 장기선 위=상승 정배열, 골든크로스=강세 전환, 데드크로스=약세 전환. 후행 지표라 횡보장엔 거짓신호 잦음.<br><br><b>거래량</b>: 움직임의 신뢰도. 돌파에 거래량이 실리면 진짜 확률↑, 없으면 가짜돌파 의심.<br><br><b>RSI</b>: 0~100. 70↑ 과매수·30↓ 과매도. 추세장에선 과매수에 오래 머물 수 있어 단독 매매 금지.<br><br><b>MACD</b>: 시그널선 상향돌파=매수, 하향=매도(후행). 다이버전스(가격↑ 지표↓)는 추세 약화 신호."},
+ "롱 / 숏":{t:"롱 / 숏",d:"<b>롱(Long)</b> = 오를 것에 베팅(싸게 사서 비싸게 팔기). <b>숏(Short)</b> = 내릴 것에 베팅(비싸게 팔고 싸게 되사기). 선물은 <b>양방향 모두 수익</b>이 가능합니다.<br><br>· 롱 수익 = (청산가−진입가)×수량, 숏 수익 = (진입가−청산가)×수량.<br>· 숏은 이론상 손실 무한(가격 상한 없음)이라 손절이 더 중요합니다."},
+ "레버리지":{t:"레버리지",d:"증거금 대비 포지션 배율입니다. <b>청산까지 버티는 역행폭 ≈ 1/레버리지</b>.<br><br>· 10배 → 약 −10%에서 청산<br>· 25배 → 약 −4%<br>· 100배 → <b>약 −1%만 역행해도 청산</b><br><br>배율이 높을수록 청산가가 진입가에 붙습니다. 레버리지는 '더 버는 도구'가 아니라 '청산 근접도'예요. 초보는 <b>3~5배 이하</b> 권장."},
+ "증거금 · 청산":{t:"증거금 · 청산",d:"<b>증거금</b>은 포지션 유지에 예치하는 담보금. 손실이 증거금(유지증거금)을 넘기 직전 거래소가 <b>강제 청산</b>합니다.<br><br>· <b>격리(Isolated)</b>: 그 포지션에 넣은 증거금만 손실 → 손실 한도 명확(초보 권장).<br>· <b>교차(Cross)</b>: 계정 전체가 담보 → 더 오래 버티지만 전체를 잃을 수 있음.<br>· 청산은 <b>마크 가격</b> 기준(마지막 체결가 아님)."},
+ "펀딩비":{t:"펀딩비",d:"무기한 선물이 현물가에 붙도록, 롱↔숏이 보통 <b>8시간마다</b> 주고받는 수수료입니다(거래소 수취 아님).<br><br>· <b>+</b>면 롱이 숏에게 지불(롱 과열), <b>−</b>면 숏이 롱에게 지불.<br>· 방향이 맞아도 펀딩이 누적되면 수익이 새어나갈 수 있습니다.<br>· 정산 시각에 포지션을 들고 있을 때만 부과됩니다."},
+ "청산가 근사식":{t:"청산가 근사식",d:"격리 기준 대략값입니다(수수료·유지증거금 제외):<br><br>· <b>롱 청산 ≈ 진입가 × (1 − 1/레버리지)</b><br>· <b>숏 청산 ≈ 진입가 × (1 + 1/레버리지)</b><br><br>예) 진입 100, 10배 롱 → 청산 ≈ 90. 25배 롱 → 청산 ≈ 96. 배율이 클수록 청산가가 진입가에 바짝 붙습니다. 대시보드 '청산맵'이 이 레벨들을 차트에 표시해요."},
+ "손절은 필수":{t:"손절은 필수",d:"진입과 <b>동시에</b> 손절 가격을 정합니다. 손절 자리는 임의의 %가 아니라 <b>'이 가격이면 내 판단이 틀렸다'</b>는 곳(지지 이탈, 스윙 저점 아래 등)에 둡니다.<br><br>· 손절 없는 매매 한 번이 수십 번의 수익을 지웁니다.<br>· 손절은 Stop-Market(체결 보장)을 권장 — Stop-Limit는 급변동 시 미체결 위험."},
+ "손익비 (R:R)":{t:"손익비 (R:R)",d:"잃을 것 대비 벌 것의 비율입니다. <b>최소 1:2 이상</b>만 진입하세요.<br><br>· 손익분기 승률 = 1 ÷ (1+R). 1:2면 <b>승률 33%로도 본전</b>, 1:3이면 25%.<br>· 즉 손익비가 좋으면 <b>승률 40%로도 장기 수익</b>이 납니다. 승률보다 손익비가 더 중요할 때가 많아요."},
+ "1~2% 룰 (포지션 크기)":{t:"1~2% 룰 (포지션 사이징)",d:"한 번의 매매에서 계좌의 <b>1~2%만</b> 잃도록 수량을 정합니다.<br><br><b>수량 = 허용 손실 ÷ (진입가 − 손절가)</b><br><br>예) 계좌 100만, 1%=1만원 허용. 손절폭이 2%면 그에 맞춰 수량을 줄입니다. 이러면 <b>10연패해도 계좌의 약 90%가 남아</b> 다시 기회를 잡을 수 있어요. 생존이 최우선."},
+ "흔한 실수":{t:"초보가 계좌 잃는 흔한 실수",d:"· <b>풀시드·고배율</b> — 한 번에 몰빵, 청산 즉사<br>· <b>손절 미설정</b> — '곧 오르겠지'하다 대형 손실<br>· <b>물타기</b> — 지는 포지션에 계속 추가(손절 근거 무시)<br>· <b>뇌동·복수매매</b> — 감정으로 즉흥 진입<br>· <b>오버트레이딩</b> — 수수료·펀딩으로 계좌 소진<br><br>선물 트레이더의 <b>70~97%가 손실</b>을 봅니다. 리스크 관리가 곧 생존입니다."},
+ "관심 / 관망 / 주의":{t:"관심 / 관망 / 주의 (상태 표시)",d:"이 대시보드가 24h 위치·모멘텀·호가로 매긴 <b>기술적 상태</b>입니다(매매 신호 아님).<br><br>· <b>관심</b>: 24h 하단권(눌림·저점 관심) 또는 강한 상승 모멘텀<br>· <b>주의</b>: 24h 상단권(추격 부담) 또는 급락<br>· <b>관망</b>: 중단 중립<br><br>매수세(호가)가 강/약하면 관심/주의로 보정됩니다."},
+ "롱 / 숏 방향":{t:"롱 / 숏 방향",d:"상세 화면 최상단의 방향 배지는 <b>차트 추세(회귀 채널 기울기)</b>로 판단합니다.<br><br>· <b>상승추세 → 롱</b>: 하단(지지)에서 매수 → 상단(저항)에서 매도 목표<br>· <b>하락추세 → 숏</b>: 상단에서 숏 진입 → 하단에서 목표(커버)<br><br>제시되는 진입·목표·손절은 채널 계산값이며 <b>교육용 참고</b>입니다."},
+ "매물대 (POC)":{t:"매물대 (POC)",d:"일정 기간 <b>거래량이 가장 많이 쌓인 가격대</b>(차트의 주황선)입니다. 그 가격에 물린/체결된 물량이 많아, 이후 <b>지지·저항 역할</b>을 크게 합니다.<br><br>· 가격이 매물대 위면 지지, 아래면 저항으로 작용하는 경향.<br>· 돌파 시 거래량 급증을 함께 확인하세요."},
+ "매수세(호가) · 롱숏 비율":{t:"매수세 · 롱숏 비율 (수급)",d:"<b>매수세(호가)</b>: 상위 10호가의 매수/매도 대기 잔량 비율. 한쪽 60%+면 방향 쏠림 참고(단, 벽은 스푸핑 가능).<br><br><b>롱숏 계정 비율 · Top Trader · Taker</b>: 바이낸스 실제 포지션·체결 데이터. 시장의 쏠림을 보여줍니다.<br><br>· 주의: <b>극단적 쏠림은 오히려 역방향 청산</b>(롱 과열→롱 청산)으로 이어질 수 있어 역발상 신호가 되기도 합니다."},
+ "참고 레벨 · 손익비":{t:"참고 레벨 · 손익비",d:"회귀 채널·거래량으로 계산한 <b>매수 관심가·손절·1·2차 매도 목표·손익비</b>입니다.<br><br>· 손절이 진입가에 가까우면 손익비가 커 보이지만(예 6:1) 실제론 그만큼 <b>쉽게 손절</b>됩니다.<br>· 모두 <b>교육용 참고값</b>이며 확정 예측·매매 지시가 아닙니다. 본인 변동성·상황에 맞게 조정하세요."}
+};
+(function(){
+  var lm=document.createElement('div'); lm.className='lmodal'; lm.id='learnModal';
+  lm.innerHTML='<div class="lmbox" id="learnBox"></div>'; document.body.appendChild(lm);
+  lm.addEventListener('click',function(e){ if(e.target===lm) closeLearn(); });
+  var lv=document.getElementById('v-learn');
+  if(lv) lv.addEventListener('click',function(e){ var lh=e.target.closest?e.target.closest('.lh'):null; if(lh){ var it=LMAP[lh.textContent.trim()]; if(it) openLearn(it); } });
+})();
+function openLearn(it){ document.getElementById('learnBox').innerHTML='<span class="lmclose" onclick="closeLearn()">✕</span><h3>'+it.t+'</h3>'+(it.svg?'<div class="lmsvg">'+it.svg+'</div>':'')+'<div class="lmd">'+it.d+'</div>'; document.getElementById('learnModal').classList.add('on'); }
+function closeLearn(){ document.getElementById('learnModal').classList.remove('on'); }
 
 /* ---- Firebase: 구글 로그인 + 즐겨찾기 기기간 동기화 ---- */
 var fbUser=null, fbDb=null;
