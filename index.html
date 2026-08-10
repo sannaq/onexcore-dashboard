@@ -101,6 +101,15 @@
   .lp b{color:var(--txt)}
   .lgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
   @media(max-width:700px){.lgrid{grid-template-columns:1fr}}
+  .nitem{display:flex;gap:10px;padding:10px 2px;border-bottom:1px solid var(--line)}
+  .nitem:last-child{border:none}
+  .ndot{width:10px;height:10px;border-radius:50%;border:2px solid var(--accent);flex:0 0 auto;margin-top:4px}
+  .ntitle{font-size:13.5px;line-height:1.45;color:var(--txt);text-decoration:none;display:block}
+  .ntitle:hover{color:var(--accent)}
+  .nmeta{display:flex;gap:6px;align-items:center;margin-top:4px;flex-wrap:wrap;font-size:11px;color:var(--sub)}
+  .ntag{font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;background:var(--panel2);border:1px solid var(--line);color:var(--sub)}
+  .npos{font-size:11px;color:var(--up);font-weight:800}
+  .nneg{font-size:11px;color:var(--down);font-weight:800}
   .backbtn{display:none;align-items:center;gap:6px;margin:0 0 12px;padding:9px 14px;border-radius:9px;border:1px solid var(--line);background:var(--panel2);color:var(--txt);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
   @media(max-width:780px){.grid{grid-template-columns:1fr}.idx .v{font-size:19px}
     body:not(.detail-open) #detail{display:none}
@@ -142,6 +151,11 @@
 </div>
 
 <div class="view" id="v-market">
+  <div class="card">
+    <h2>📰 실시간 뉴스 <span class="muted" id="newsupd" style="text-transform:none;font-weight:400">불러오는 중…</span></h2>
+    <div id="newsbox"><div class="muted" style="font-size:12px">불러오는 중…</div></div>
+    <div class="muted" style="font-size:11px;margin-top:8px">출처: 블록미디어·토큰포스트 · 5분마다 자동 갱신 · 긍정/부정은 키워드 기반 자동 태그(참고용)</div>
+  </div>
   <div class="card">
     <h2>미국 주요 지수 <span class="muted" style="text-transform:none;font-weight:500">· 스냅샷 2026-07-30</span></h2>
     <div class="g2">
@@ -474,6 +488,19 @@ q.oninput=()=>render(q.value);
 [...document.querySelectorAll('.chip')].forEach(c=>{const go=()=>{q.value=c.dataset.s;render(q.value);sel=c.dataset.s;showDetail(sel);if(window.innerWidth<=780){document.body.classList.add('detail-open');window.scrollTo({top:0,behavior:'smooth'});}};c.onclick=go;c.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}};});
 render('');showDetail('SOL');stamp();
 live();setInterval(live,45000);setInterval(stamp,1000);
+function relTime(d){var s=(Date.now()-d)/1000; if(s<60)return '방금 전'; if(s<3600)return Math.floor(s/60)+'분 전'; if(s<86400)return Math.floor(s/3600)+'시간 전'; return Math.floor(s/86400)+'일 전';}
+function sentiment(t){var neg=['하락','급락','규제','금지','관세','해킹','청산','폭락','우려','경고','소송','제재','유출','하향','파산','연기','거부','약세','손실','벌금','압류','위기','충격','매도','부진','논란'];var pos=['상승','급등','호재','승인','채택','도입','유입','신고가','돌파','완화','호조','성장','상향','상장','파트너','투자','반등','회복','매수','기대','최고','호실적','흥행'];for(var i=0;i<neg.length;i++)if(t.indexOf(neg[i])>-1)return 'neg';for(var j=0;j<pos.length;j++)if(t.indexOf(pos[j])>-1)return 'pos';return 'neu';}
+async function fetchNews(){var box=document.getElementById('newsbox'); if(!box)return;
+  try{var feeds=[{u:'https://www.blockmedia.co.kr/feed/',s:'블록미디어'},{u:'https://www.tokenpost.kr/rss',s:'토큰포스트'}];
+    var res=await Promise.all(feeds.map(function(f){return fetch('https://api.rss2json.com/v1/api.json?rss_url='+encodeURIComponent(f.u)).then(function(r){return r.json();}).then(function(j){return {j:j,s:f.s};}).catch(function(){return null;});}));
+    var all=[];res.forEach(function(x){if(x&&x.j&&x.j.items)x.j.items.forEach(function(it){all.push({title:it.title,link:it.link,t:Date.parse(it.pubDate)||Date.now(),src:x.s});});});
+    all.sort(function(a,b){return b.t-a.t;});all=all.slice(0,14);
+    if(!all.length){box.innerHTML='<div class="muted" style="font-size:12px;padding:4px 0">뉴스를 불러오지 못했어요(잠시 후 자동 재시도)</div>';return;}
+    box.innerHTML=all.map(function(n){var se=sentiment(n.title);var stag=se==='pos'?'<span class="npos">긍정</span>':se==='neg'?'<span class="nneg">부정</span>':'';return '<div class="nitem"><div class="ndot"></div><div style="min-width:0"><a href="'+n.link+'" target="_blank" rel="noopener" class="ntitle">'+esc(n.title)+'</a><div class="nmeta"><span>'+relTime(n.t)+'</span><span class="ntag">시장</span><span class="ntag">'+esc(n.src)+'</span>'+stag+'</div></div></div>';}).join('');
+    var up=document.getElementById('newsupd');if(up)up.textContent='· 방금 갱신';
+  }catch(e){box.innerHTML='<div class="muted" style="font-size:12px;padding:4px 0">뉴스를 불러오지 못했어요</div>';}
+}
+fetchNews();setInterval(fetchNews,300000);
 
 /* ---- Firebase: 구글 로그인 + 즐겨찾기 기기간 동기화 ---- */
 var fbUser=null, fbDb=null;
