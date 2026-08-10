@@ -425,8 +425,9 @@ async function drawChart(x){
       var a=pv[pv.length-2], b=pv[pv.length-1];
       var pa=up?data[a].low:data[a].high, pb=up?data[b].low:data[b].high;
       var slope=(pb-pa)/(b-a);
-      var s=chart.addLineSeries({color:'#c8a15a',lineWidth:2,lastValueVisible:false,priceLineVisible:false,crosshairMarkerVisible:false});
-      s.setData(data.map(function(dd,i){return {time:dd.time,value:pa+slope*(i-a)};}));
+      var s=chart.addLineSeries({color:'#e0a83e',lineWidth:2,lastValueVisible:false,priceLineVisible:false,crosshairMarkerVisible:false});
+      var pts=[]; for(var ii=a; ii<data.length; ii++){pts.push({time:data[ii].time, value:pa+slope*(ii-a)});}
+      s.setData(pts);
     })();
     chart.timeScale().fitContent();
     chartTimer=setInterval(function(){ fetch(url).then(r=>r.json()).then(function(rw){ if(Array.isArray(rw)) cs.setData(toBars(rw)); }).catch(function(){}); }, 30000);
