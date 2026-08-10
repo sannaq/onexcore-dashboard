@@ -3,18 +3,22 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>ONEXCORE 선물 대시보드 — 실시간</title>
+<title>AUREUM · 선물 분석 터미널</title>
 <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css"/>
 <style>
-  :root{--bg:#ffffff;--panel:#f8f9fd;--panel2:#eff2f7;--line:#e0e3eb;--txt:#131722;--sub:#787b86;--accent:#2962ff;--up:#089981;--down:#f23645;--wait:#f57c00;--upbg:rgba(8,153,129,.10);--downbg:rgba(242,54,69,.10);}
-  @media (prefers-color-scheme:dark){:root{--bg:#131722;--panel:#1e222d;--panel2:#2a2e39;--line:#2a2e39;--txt:#d1d4dc;--sub:#787b86;--accent:#2962ff;--up:#26a69a;--down:#f23645;--wait:#ff9800;--upbg:rgba(38,166,154,.14);--downbg:rgba(242,54,69,.14);}}
-  :root[data-theme="light"]{--bg:#ffffff;--panel:#f8f9fd;--panel2:#eff2f7;--line:#e0e3eb;--txt:#131722;--sub:#787b86;--accent:#2962ff;--up:#089981;--down:#f23645;--wait:#f57c00;--upbg:rgba(8,153,129,.10);--downbg:rgba(242,54,69,.10);}
-  :root[data-theme="dark"]{--bg:#131722;--panel:#1e222d;--panel2:#2a2e39;--line:#2a2e39;--txt:#d1d4dc;--sub:#787b86;--accent:#2962ff;--up:#26a69a;--down:#f23645;--wait:#ff9800;--upbg:rgba(38,166,154,.14);--downbg:rgba(242,54,69,.14);}
+  :root{--bg:#f6f5f2;--panel:#fffefb;--panel2:#efece5;--line:#e6e2d9;--txt:#1c1d22;--sub:#7a7669;--accent:#a67c2e;--up:#12a150;--down:#e5384d;--wait:#c07a12;--upbg:rgba(18,161,80,.1);--downbg:rgba(229,56,77,.1);}
+  @media (prefers-color-scheme:dark){:root{--bg:#0a0c11;--panel:#14171f;--panel2:#1c2029;--line:#262b36;--txt:#eceef4;--sub:#8b90a0;--accent:#c8a15a;--up:#2ebd85;--down:#f6465d;--wait:#e0a83e;--upbg:rgba(46,189,133,.13);--downbg:rgba(246,70,93,.13);}}
+  :root[data-theme="light"]{--bg:#f6f5f2;--panel:#fffefb;--panel2:#efece5;--line:#e6e2d9;--txt:#1c1d22;--sub:#7a7669;--accent:#a67c2e;--up:#12a150;--down:#e5384d;--wait:#c07a12;--upbg:rgba(18,161,80,.1);--downbg:rgba(229,56,77,.1);}
+  :root[data-theme="dark"]{--bg:#0a0c11;--panel:#14171f;--panel2:#1c2029;--line:#262b36;--txt:#eceef4;--sub:#8b90a0;--accent:#c8a15a;--up:#2ebd85;--down:#f6465d;--wait:#e0a83e;--upbg:rgba(46,189,133,.13);--downbg:rgba(246,70,93,.13);}
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--txt);font-family:'Segoe UI','Malgun Gothic',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;padding:16px;max-width:1080px;margin:0 auto}
+  body{margin:0;background:radial-gradient(1200px 640px at 50% -8%, color-mix(in srgb,var(--accent) 7%,var(--bg)), var(--bg)) fixed;color:var(--txt);font-family:'Pretendard','Segoe UI','Malgun Gothic',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;letter-spacing:-.1px;padding:16px 16px 44px;max-width:1080px;margin:0 auto;min-height:100vh}
+  ::selection{background:color-mix(in srgb,var(--accent) 32%,transparent)}
+  .tab,.chip,.li,.tbtn,.loginbtn,.tf,.litem,.idx,.nitem{transition:background .16s,border-color .16s,color .16s,box-shadow .16s}
+  ::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px}::-webkit-scrollbar-thumb:hover{background:var(--sub)}
   .muted{color:var(--sub)}.num{font-variant-numeric:tabular-nums}
   .hd{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
   .brand{font-size:17px;font-weight:800}.brand small{display:block;font-size:11px;font-weight:500;color:var(--sub);margin-top:3px}
@@ -27,8 +31,8 @@
   .loginbtn:hover{border-color:var(--accent)}
   .tabs{display:flex;gap:6px;background:var(--panel2);padding:5px;border-radius:12px;margin-bottom:16px}
   .tab{flex:1;text-align:center;padding:9px;border:none;border-radius:8px;background:transparent;color:var(--sub);font-size:14px;font-weight:700;cursor:pointer;font-family:inherit}
-  .tab.on{background:var(--panel);color:var(--txt);box-shadow:0 1px 3px rgba(0,0,0,.08)}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:15px 16px;margin-bottom:14px}
+  .tab.on{background:var(--panel);color:var(--accent);box-shadow:0 1px 4px rgba(0,0,0,.25)}
+  .card{background:linear-gradient(180deg,color-mix(in srgb,var(--txt) 3%,var(--panel)),var(--panel));border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin-bottom:14px;box-shadow:0 1px 2px rgba(0,0,0,.16),0 14px 34px -16px rgba(0,0,0,.34)}
   h2{font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--sub);margin:0 0 12px;font-weight:700}
   .view{display:none}.view.on{display:block}
   .pill{font-size:11px;padding:3px 9px;border-radius:20px;font-weight:800;white-space:nowrap}
@@ -130,7 +134,7 @@
 </head>
 <body>
 <div class="hd">
-  <div class="brand">📊 ONEXCORE 선물 대시보드
+  <div class="brand"><span style="color:var(--accent)">◆</span> AUREUM <span class="muted" style="font-weight:600;font-size:12px">선물 분석 터미널</span>
     <small><span id="live"><span class="dot off"></span>연결 중…</span> · 크립토 실시간 · <span id="clock">--:--:--</span></small></div>
   <div style="display:flex;gap:8px;align-items:center">
     <button class="loginbtn" id="login">🔓 로그인</button>
@@ -340,7 +344,7 @@ function showDetail(s){
     h+='<div class="tfrow"><button class="tf'+(chartOn?' on':'')+'" onclick="toggleChart()">'+(chartOn?'📉 차트끄기':'📈 차트보기')+'</button>';
     if(chartOn){h+=[['1m','1분'],['5m','5분'],['30m','30분'],['1h','1시간'],['4h','4시간'],['1d','1일']].map(function(a){return '<button class="tf'+(curInterval===a[0]?' on':'')+'" onclick="setTf(\''+a[0]+'\')">'+a[1]+'</button>';}).join('')+'<button class="tf" onclick="saveChart()">📷 저장</button>'+'<button class="tf'+(liqOn?' on':'')+'" onclick="toggleLiq()">🔥 청산맵</button>';}
     h+='</div>';
-    if(chartOn){h+='<div class="chartlegend"><span class="lgd"><i style="border-color:#ff5b5b;border-top-style:dashed"></i>저항</span><span class="lgd"><i style="border-color:#2ec46b;border-top-style:dashed"></i>지지</span><span class="lgd"><i style="border-color:#4a9eff"></i>추세 채널</span><span class="lgd"><i style="border-color:#a06bff;border-top-style:dotted"></i>피보</span><span class="lgd"><i style="border-color:#ff9800"></i>매물대</span>'+(liqOn?'<span class="lgd"><i style="border-color:#f23645"></i>롱청산 <i style="border-color:#26a69a;margin-left:4px"></i>숏청산</span>':'')+'<span style="margin-left:auto">스크롤·핀치 확대/축소</span></div><div id="tvchart"></div>';}
+    if(chartOn){h+='<div class="chartlegend"><span class="lgd"><i style="border-color:#ff5b5b;border-top-style:dashed"></i>저항</span><span class="lgd"><i style="border-color:#2ec46b;border-top-style:dashed"></i>지지</span><span class="lgd"><i style="border-color:#4a9eff"></i>채널</span><span class="lgd"><i style="border-color:#c8a15a"></i>추세선</span><span class="lgd"><i style="border-color:#a06bff;border-top-style:dotted"></i>피보</span><span class="lgd"><i style="border-color:#ff9800"></i>매물대</span>'+(liqOn?'<span class="lgd"><i style="border-color:#f23645"></i>롱청산 <i style="border-color:#26a69a;margin-left:4px"></i>숏청산</span>':'')+'<span style="margin-left:auto">스크롤·핀치 확대/축소</span></div><div id="tvchart"></div>';}
   }
   if(x.hi!=null&&x.lo!=null){
     const span=x.hi-x.lo,f382=x.hi-0.382*span,f618=x.hi-0.618*span;
@@ -389,7 +393,7 @@ async function drawChart(x){
   const grid=dark?'#222a36':'#eceef3', bd=dark?'#2a3240':'#dfe3ea', txt=dark?'#8790a1':'#697180';
   const chart=LightweightCharts.createChart(el,{autoSize:true,layout:{background:{color:'transparent'},textColor:txt,fontSize:11},grid:{vertLines:{color:grid},horzLines:{color:grid}},timeScale:{timeVisible:true,secondsVisible:false,borderColor:bd},rightPriceScale:{borderColor:bd},crosshair:{mode:0}});
   chartObj=chart;
-  const cs=chart.addCandlestickSeries({upColor:'#26a69a',downColor:'#ef5350',borderVisible:false,wickUpColor:'#26a69a',wickDownColor:'#ef5350'});
+  const cs=chart.addCandlestickSeries({upColor:'#2ebd85',downColor:'#f6465d',borderVisible:false,wickUpColor:'#2ebd85',wickDownColor:'#f6465d'});
   if(chartTimer){clearInterval(chartTimer);chartTimer=null;}
   const url=FAPI+'klines?symbol='+x.bn+'&interval='+curInterval+'&limit='+(LIM[curInterval]||160);
   try{
@@ -412,7 +416,17 @@ async function drawChart(x){
       let above=-Infinity, below=Infinity;
       data.forEach((dd,i)=>{const r=itc+sl*i; if(dd.high-r>above)above=dd.high-r; if(dd.low-r<below)below=dd.low-r;});
       const mk=(off,w,style)=>{const s=chart.addLineSeries({color:'#4a9eff',lineWidth:w,lineStyle:style,lastValueVisible:false,priceLineVisible:false,crosshairMarkerVisible:false});s.setData(data.map((dd,i)=>({time:dd.time,value:itc+sl*i+off})));};
-      mk(above,2,0); mk(0,1,2); mk(below,2,0);
+      mk(above,1,2); mk(0,1,2); mk(below,1,2);
+    })();
+    // 골드 스윙 추세선 (저점/고점 연결)
+    (function(){
+      var up=data[data.length-1].close>=data[0].close;
+      var pv=pivots(data,3,up?'low':'high'); if(pv.length<2)return;
+      var a=pv[pv.length-2], b=pv[pv.length-1];
+      var pa=up?data[a].low:data[a].high, pb=up?data[b].low:data[b].high;
+      var slope=(pb-pa)/(b-a);
+      var s=chart.addLineSeries({color:'#c8a15a',lineWidth:2,lastValueVisible:false,priceLineVisible:false,crosshairMarkerVisible:false});
+      s.setData(data.map(function(dd,i){return {time:dd.time,value:pa+slope*(i-a)};}));
     })();
     chart.timeScale().fitContent();
     chartTimer=setInterval(function(){ fetch(url).then(r=>r.json()).then(function(rw){ if(Array.isArray(rw)) cs.setData(toBars(rw)); }).catch(function(){}); }, 30000);
