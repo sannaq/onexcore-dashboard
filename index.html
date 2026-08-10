@@ -344,7 +344,7 @@ function showDetail(s){
     h+='<div class="tfrow"><button class="tf'+(chartOn?' on':'')+'" onclick="toggleChart()">'+(chartOn?'📉 차트끄기':'📈 차트보기')+'</button>';
     if(chartOn){h+=[['1m','1분'],['5m','5분'],['30m','30분'],['1h','1시간'],['4h','4시간'],['1d','1일']].map(function(a){return '<button class="tf'+(curInterval===a[0]?' on':'')+'" onclick="setTf(\''+a[0]+'\')">'+a[1]+'</button>';}).join('')+'<button class="tf" onclick="saveChart()">📷 저장</button>'+'<button class="tf'+(liqOn?' on':'')+'" onclick="toggleLiq()">🔥 청산맵</button>';}
     h+='</div>';
-    if(chartOn){h+='<div class="chartlegend"><span class="lgd"><i style="border-color:#ff5b5b;border-top-style:dashed"></i>저항</span><span class="lgd"><i style="border-color:#2ec46b;border-top-style:dashed"></i>지지</span><span class="lgd"><i style="border-color:#4a9eff"></i>채널</span><span class="lgd"><i style="border-color:#c8a15a"></i>추세선</span><span class="lgd"><i style="border-color:#a06bff;border-top-style:dotted"></i>피보</span><span class="lgd"><i style="border-color:#ff9800"></i>매물대</span>'+(liqOn?'<span class="lgd"><i style="border-color:#f23645"></i>롱청산 <i style="border-color:#26a69a;margin-left:4px"></i>숏청산</span>':'')+'<span style="margin-left:auto">스크롤·핀치 확대/축소</span></div><div id="tvchart"></div>';}
+    if(chartOn){h+='<div class="chartlegend"><span class="lgd"><i style="border-color:#f6465d"></i>저항</span><span class="lgd"><i style="border-color:#2ebd85"></i>지지</span><span class="lgd"><i style="border-color:#4a9eff"></i>채널</span><span class="lgd"><i style="border-color:#e0a83e"></i>추세선</span><span class="lgd"><i style="border-color:#a06bff"></i>피보</span><span class="lgd"><i style="border-color:#ff9800"></i>매물대</span>'+(liqOn?'<span class="lgd"><i style="border-color:#f23645"></i>롱청산 <i style="border-color:#26a69a;margin-left:4px"></i>숏청산</span>':'')+'<span style="margin-left:auto">스크롤·핀치 확대/축소</span></div><div id="tvchart"></div>';}
   }
   if(x.hi!=null&&x.lo!=null){
     const span=x.hi-x.lo,f382=x.hi-0.382*span,f618=x.hi-0.618*span;
@@ -401,14 +401,14 @@ async function drawChart(x){
     if(!Array.isArray(raw))throw 0;
     const data=toBars(raw);
     cs.setData(data);
-    cs.createPriceLine({price:x.hi,color:'#ff5b5b',lineWidth:2,lineStyle:2,axisLabelVisible:true,title:'저항'});
-    cs.createPriceLine({price:x.lo,color:'#2ec46b',lineWidth:2,lineStyle:2,axisLabelVisible:true,title:'지지'});
+    cs.createPriceLine({price:x.hi,color:'#f6465d',lineWidth:1,lineStyle:0,axisLabelVisible:true,title:'저항'});
+    cs.createPriceLine({price:x.lo,color:'#2ebd85',lineWidth:1,lineStyle:0,axisLabelVisible:true,title:'지지'});
     var hi=-Infinity,lo=Infinity; data.forEach(function(d){if(d.high>hi)hi=d.high; if(d.low<lo)lo=d.low;});
     [[0.382,'0.382'],[0.5,'0.5'],[0.618,'0.618']].forEach(function(f){
-      cs.createPriceLine({price:hi-f[0]*(hi-lo),color:'#a06bff',lineWidth:1,lineStyle:1,axisLabelVisible:false,title:'fib '+f[1]});
+      cs.createPriceLine({price:hi-f[0]*(hi-lo),color:'#a06bff',lineWidth:1,lineStyle:0,axisLabelVisible:false,title:'fib '+f[1]});
     });
     var poc=volProfile(raw); if(poc)cs.createPriceLine({price:(poc.low+poc.high)/2,color:'#ff9800',lineWidth:2,lineStyle:0,axisLabelVisible:true,title:'매물대'});
-    if(liqOn){[[10,0.10],[25,0.04],[50,0.02],[100,0.01]].forEach(function(L){var a=(0.3+(L[0]/100)*0.55).toFixed(2);cs.createPriceLine({price:x.px*(1-L[1]),color:'rgba(242,54,69,'+a+')',lineWidth:1,lineStyle:0,axisLabelVisible:false,title:'롱'+L[0]+'x청산'});cs.createPriceLine({price:x.px*(1+L[1]),color:'rgba(38,166,154,'+a+')',lineWidth:1,lineStyle:0,axisLabelVisible:false,title:'숏'+L[0]+'x청산'});});}
+    if(liqOn){[[25,0.04],[50,0.02],[100,0.01]].forEach(function(L){var a=(0.45+(L[0]/100)*0.5).toFixed(2);cs.createPriceLine({price:x.px*(1-L[1]),color:'rgba(246,70,93,'+a+')',lineWidth:2,lineStyle:0,axisLabelVisible:true,title:'롱'+L[0]+'x청산'});cs.createPriceLine({price:x.px*(1+L[1]),color:'rgba(46,189,133,'+a+')',lineWidth:2,lineStyle:0,axisLabelVisible:true,title:'숏'+L[0]+'x청산'});});}
     (function(){
       const n=data.length; let sx=0,sy=0,sxy=0,sxx=0;
       data.forEach((dd,i)=>{sx+=i;sy+=dd.close;sxy+=i*dd.close;sxx+=i*i;});
@@ -416,7 +416,7 @@ async function drawChart(x){
       let above=-Infinity, below=Infinity;
       data.forEach((dd,i)=>{const r=itc+sl*i; if(dd.high-r>above)above=dd.high-r; if(dd.low-r<below)below=dd.low-r;});
       const mk=(off,w,style)=>{const s=chart.addLineSeries({color:'#4a9eff',lineWidth:w,lineStyle:style,lastValueVisible:false,priceLineVisible:false,crosshairMarkerVisible:false});s.setData(data.map((dd,i)=>({time:dd.time,value:itc+sl*i+off})));};
-      mk(above,1,2); mk(0,1,2); mk(below,1,2);
+      mk(above,1,0); mk(below,1,0);
     })();
     // 골드 스윙 추세선 (저점/고점 연결)
     (function(){
