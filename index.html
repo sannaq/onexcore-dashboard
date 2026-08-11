@@ -433,10 +433,11 @@ async function drawChart(x){
   try{
     const raw=await fetch(url).then(r=>r.json());
     if(!Array.isArray(raw))throw 0;
-    const data=toBars(raw);
+    let data=toBars(raw);
     cs.setData(data);
     var clz=data.map(function(d){return d.close;});
-    [[20,'#f0b90b'],[50,'#3b82f6'],[200,'#a855f7']].forEach(function(E){ if(clz.length>=E[0]){ var ev=ema(clz,E[0]); var es=chart.addLineSeries({color:E[1],lineWidth:1,lastValueVisible:false,priceLineVisible:false,crosshairMarkerVisible:false}); es.setData(data.map(function(d,i){return {time:d.time,value:ev[i]};})); } });
+    var emaRefs=[];
+    [[20,'#f0b90b'],[50,'#3b82f6'],[200,'#a855f7']].forEach(function(E){ if(clz.length>=E[0]){ var ev=ema(clz,E[0]); var es=chart.addLineSeries({color:E[1],lineWidth:1,lastValueVisible:false,priceLineVisible:false,crosshairMarkerVisible:false}); es.setData(data.map(function(d,i){return {time:d.time,value:ev[i]};})); emaRefs.push({p:E[0],series:es}); } });
     cs.createPriceLine({price:x.hi,color:'#f6465d',lineWidth:1,lineStyle:0,axisLabelVisible:true,title:'저항'});
     cs.createPriceLine({price:x.lo,color:'#2ebd85',lineWidth:1,lineStyle:0,axisLabelVisible:true,title:'지지'});
     var hi=-Infinity,lo=Infinity; data.forEach(function(d){if(d.high>hi)hi=d.high; if(d.low<lo)lo=d.low;});
@@ -474,7 +475,7 @@ async function drawChart(x){
     chart.timeScale().fitContent();
     var lastBar=Object.assign({},data[data.length-1]);
     var iv=IVMS[curInterval]||900000;
-    chartTimer=setInterval(function(){ fetch(url).then(r=>r.json()).then(function(rw){ if(Array.isArray(rw)){var bars=toBars(rw); cs.setData(bars); lastBar=Object.assign({},bars[bars.length-1]);} }).catch(function(){}); }, 5000);
+    chartTimer=setInterval(function(){ fetch(FAPI+'klines?symbol='+x.bn+'&interval='+curInterval+'&limit=2').then(r=>r.json()).then(function(rw){ if(Array.isArray(rw)&&rw.length){var recent=toBars(rw); var nb=recent[recent.length-1]; try{cs.update(nb);}catch(e){} var li=data.length-1; if(li>=0&&data[li].time===nb.time){data[li]=nb;} else if(li>=0&&nb.time>data[li].time){data.push(nb);} lastBar=Object.assign({},nb);} }).catch(function(){}); }, 5000);
     var wsMsg=function(ev){ try{var m=JSON.parse(ev.data); var p=+m.p; if(!p)return; var bt=Math.floor((m.T||Date.now())/iv)*iv/1000; if(!lastBar||bt>lastBar.time){lastBar={time:bt,open:p,high:p,low:p,close:p};} else {if(p>lastBar.high)lastBar.high=p; if(p<lastBar.low)lastBar.low=p; lastBar.close=p;} cs.update(lastBar); var dp=det.querySelector('.price'); if(dp&&sel===x.s)dp.textContent=fmt(p,x.dec||2); }catch(e){} };
     function openWS(){ var sym=x.bn.toLowerCase(), got=false, fellBack=false;
       function conn(u,isFb){ try{ chartWS=new WebSocket(u); chartWS.onmessage=function(ev){got=true; wsMsg(ev);}; chartWS.onclose=function(){ if(sel===x.s&&chartObj){ setTimeout(function(){ if(sel===x.s&&chartObj) openWS(); },2000);} }; }catch(e){ if(!isFb&&!fellBack){fellBack=true; conn('wss://data-stream.binance.vision/ws/'+sym+'@aggTrade',true);} } }
@@ -482,6 +483,26 @@ async function drawChart(x){
       setTimeout(function(){ if(!got && !fellBack && chartWS && sel===x.s){ fellBack=true; try{chartWS.onclose=null;chartWS.close();}catch(e){} conn('wss://data-stream.binance.vision/ws/'+sym+'@aggTrade',true); } },4000); // 막히면 현물 폴백
     }
     openWS();
+    // 무한 히스토리: 왼쪽 끝 근처로 팬/줌아웃하면 과거 데이터 자동 로딩(선·차트 자동 연장)
+    var loadingHist=false, noMoreHist=false;
+    chart.timeScale().subscribeVisibleLogicalRangeChange(function(lr){
+      if(!lr||loadingHist||noMoreHist)return;
+      if(lr.from>10)return;
+      loadingHist=true;
+      var endMs=data[0].time*1000-1;
+      fetch(FAPI+'klines?symbol='+x.bn+'&interval='+curInterval+'&endTime='+endMs+'&limit=500').then(function(r){return r.json();}).then(function(rw){
+        if(!Array.isArray(rw)||!rw.length){noMoreHist=true;loadingHist=false;return;}
+        var older=toBars(rw).filter(function(b){return b.time<data[0].time;});
+        if(!older.length){noMoreHist=true;loadingHist=false;return;}
+        var added=older.length, vr=chart.timeScale().getVisibleLogicalRange();
+        data=older.concat(data);
+        cs.setData(data);
+        var clz2=data.map(function(d){return d.close;});
+        emaRefs.forEach(function(E){ if(clz2.length>=E.p){ var ev=ema(clz2,E.p); E.series.setData(data.map(function(d,i){return {time:d.time,value:ev[i]};})); } });
+        if(vr)chart.timeScale().setVisibleLogicalRange({from:vr.from+added,to:vr.to+added});
+        loadingHist=false;
+      }).catch(function(){loadingHist=false;});
+    });
   }catch(e){el.innerHTML='<div class="muted" style="padding:24px;text-align:center;font-size:12px">차트 데이터를 불러오지 못했어요</div>';}
 }
 async function fetchDepth(x){
