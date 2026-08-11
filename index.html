@@ -339,7 +339,7 @@ function showDetail(s){
   if(x.bn)h+='<div id="topsig" class="sigcard" style="display:none"></div>';
   if(x.bn){
     h+='<div class="tfrow"><button class="tf'+(chartOn?' on':'')+'" onclick="toggleChart()">'+(chartOn?'📉 차트끄기':'📈 차트보기')+'</button>';
-    if(chartOn){h+=[['1m','1분'],['5m','5분'],['30m','30분'],['1h','1시간'],['4h','4시간'],['1d','1일']].map(function(a){return '<button class="tf'+(curInterval===a[0]?' on':'')+'" onclick="setTf(\''+a[0]+'\')">'+a[1]+'</button>';}).join('')+'<button class="tf" onclick="refreshChart()">🔄 새로고침</button>'+'<button class="tf" onclick="saveChart()">📷 저장</button>'+'<button class="tf'+(liqOn?' on':'')+'" onclick="toggleLiq()">🔥 청산맵</button>';}
+    if(chartOn){h+='<button class="tf'+(autoTf?' on':'')+'" onclick="toggleAutoTf()" title="줌 레벨에 맞춰 시간봉 자동 전환">🅰 자동</button>'+[['1m','1분'],['5m','5분'],['30m','30분'],['1h','1시간'],['4h','4시간'],['1d','1일']].map(function(a){return '<button class="tf'+(curInterval===a[0]?' on':'')+'" onclick="setTf(\''+a[0]+'\')">'+a[1]+'</button>';}).join('')+'<button class="tf" onclick="refreshChart()">🔄 새로고침</button>'+'<button class="tf" onclick="saveChart()">📷 저장</button>'+'<button class="tf'+(liqOn?' on':'')+'" onclick="toggleLiq()">🔥 청산맵</button>';}
     h+='</div>';
     if(chartOn){h+='<div class="chartlegend"><span class="lgd"><i style="border-color:#f6465d"></i>저항</span><span class="lgd"><i style="border-color:#2ebd85"></i>지지</span><span class="lgd"><i style="border-color:#4a9eff"></i>채널</span><span class="lgd"><i style="border-color:#e0a83e"></i>추세선</span><span class="lgd"><i style="border-color:#a06bff"></i>피보</span><span class="lgd"><i style="border-color:#ff9800"></i>매물대</span><span class="lgd"><i style="border-color:#f0b90b"></i>EMA20</span><span class="lgd"><i style="border-color:#3b82f6"></i>50</span><span class="lgd"><i style="border-color:#a855f7"></i>200</span>'+(liqOn?'<span class="lgd"><i style="border-color:#f23645"></i>롱청산 <i style="border-color:#26a69a;margin-left:4px"></i>숏청산</span>':'')+'<span style="margin-left:auto">스크롤·핀치 확대/축소</span></div><div id="tvchart"></div>';}
   }
@@ -375,12 +375,18 @@ function showDetail(s){
 const FAPI='https://fapi.binance.com/fapi/v1/';
 let chartObj=null, curInterval='15m', chartTimer=null, chartOn=true, chartWS=null;
 try{chartOn=localStorage.getItem('oxchart')!=='0';}catch(e){}
+var autoTf=true; try{autoTf=localStorage.getItem('oxauto')!=='0';}catch(e){}
+var lastTfSwitch=0;
+var TF_LADDER=[['1m',60],['5m',300],['15m',900],['30m',1800],['1h',3600],['4h',14400],['1d',86400]];
+function autoSwitchTf(iv){ if(iv===curInterval)return; curInterval=iv; if(sel) showDetail(sel); }
+function autoTfCheck(lr){ if(!autoTf||!chartOn||!lr)return false; var vis=lr.to-lr.from; if(!(vis>0))return false; var el=document.getElementById('tvchart'); var wpx=(el&&el.clientWidth)?el.clientWidth:360; var pxb=wpx/vis; var idx=-1; for(var i=0;i<TF_LADDER.length;i++){if(TF_LADDER[i][0]===curInterval){idx=i;break;}} if(idx<0)return false; var now=Date.now(); if(now-lastTfSwitch<800)return false; if(pxb<2.2 && idx<TF_LADDER.length-1){lastTfSwitch=now; autoSwitchTf(TF_LADDER[idx+1][0]); return true;} else if(pxb>18 && idx>0){lastTfSwitch=now; autoSwitchTf(TF_LADDER[idx-1][0]); return true;} return false; }
+function toggleAutoTf(){autoTf=!autoTf; try{localStorage.setItem('oxauto',autoTf?'1':'0');}catch(e){} if(sel) showDetail(sel);}
 const LIM={'1m':300,'5m':300,'30m':300,'1h':300,'4h':300,'1d':300};
 function ema(v,p){var k=2/(p+1),e=v[0],o=[e],i;for(i=1;i<v.length;i++){e=v[i]*k+e*(1-k);o.push(e);}return o;}
 const IVMS={'1m':60000,'5m':300000,'30m':1800000,'1h':3600000,'4h':14400000,'1d':86400000};
 function refreshChart(){ if(typeof live==='function')live(); if(sel)showDetail(sel); }
 function toBars(raw){return raw.map(k=>({time:Math.floor(k[0]/1000),open:+k[1],high:+k[2],low:+k[3],close:+k[4]}));}
-function setTf(iv){curInterval=iv; if(sel) showDetail(sel);}
+function setTf(iv){autoTf=false; try{localStorage.setItem('oxauto','0');}catch(e){} curInterval=iv; if(sel) showDetail(sel);}
 function toggleChart(){chartOn=!chartOn;try{localStorage.setItem('oxchart',chartOn?'1':'0');}catch(e){} if(sel)showDetail(sel);}
 var liqOn=false; try{liqOn=localStorage.getItem('oxliq')==='1';}catch(e){}
 function toggleLiq(){liqOn=!liqOn;try{localStorage.setItem('oxliq',liqOn?'1':'0');}catch(e){} if(sel)showDetail(sel);}
@@ -472,7 +478,7 @@ async function drawChart(x){
       var pts=[]; for(var ii=a; ii<data.length; ii++){pts.push({time:data[ii].time, value:pa+slope*(ii-a)});}
       s.setData(pts);
     })();
-    chart.timeScale().fitContent();
+    chart.timeScale().applyOptions({barSpacing:7,rightOffset:4}); // 적정 밀도(자동 전환 안정) · 최신봉 우측 정렬
     var lastBar=Object.assign({},data[data.length-1]);
     var iv=IVMS[curInterval]||900000;
     chartTimer=setInterval(function(){ fetch(FAPI+'klines?symbol='+x.bn+'&interval='+curInterval+'&limit=2').then(r=>r.json()).then(function(rw){ if(Array.isArray(rw)&&rw.length){var recent=toBars(rw); var nb=recent[recent.length-1]; try{cs.update(nb);}catch(e){} var li=data.length-1; if(li>=0&&data[li].time===nb.time){data[li]=nb;} else if(li>=0&&nb.time>data[li].time){data.push(nb);} lastBar=Object.assign({},nb);} }).catch(function(){}); }, 5000);
@@ -486,6 +492,7 @@ async function drawChart(x){
     // 무한 히스토리: 왼쪽 끝 근처로 팬/줌아웃하면 과거 데이터 자동 로딩(선·차트 자동 연장)
     var loadingHist=false, noMoreHist=false;
     chart.timeScale().subscribeVisibleLogicalRangeChange(function(lr){
+      if(autoTfCheck(lr))return; // 줌 레벨 따라 시간봉 자동 전환(수동 선택 시 OFF)
       if(!lr||loadingHist||noMoreHist)return;
       if(lr.from>10)return;
       loadingHist=true;
