@@ -421,7 +421,7 @@ function render(f){
   [...list.querySelectorAll('.li[data-s]')].forEach(el=>el.onclick=()=>{sel=el.dataset.s;render(q.value);showDetail(sel);if(window.innerWidth<=780){document.body.classList.add('detail-open');window.scrollTo({top:0,behavior:'smooth'});}});
 }
 function showDetail(s){
-  const x=C.find(v=>v.s===s);if(!x){det.innerHTML='';return;}const t=TAG[x._st];const d=x.dec||2;
+  const x=C.find(v=>v.s===s);if(!x){det.innerHTML='';return;}sel=s;const t=TAG[x._st];const d=x.dec||2;
   if(chartTimer){clearInterval(chartTimer);chartTimer=null;} if(chartWS){try{chartWS.close()}catch(e){} chartWS=null;}
   const chart='<a class="cbtn" href="https://www.onexcore.com/trading/'+x.s.toLowerCase()+'usdt" target="_blank" rel="noopener">📈 ONEXCORE 차트 열기</a>';
   let h='<button class="backbtn" onclick="document.body.classList.remove(\'detail-open\');window.scrollTo({top:0})">◀ 목록으로</button><h2>상세 — '+x.s+(x.bn?' <span class="live-b">●LIVE</span>':' <span class="muted" style="font-weight:500;text-transform:none">(스냅샷)</span>')+' <span class="muted" style="text-transform:none;font-weight:500">'+esc(x.k)+'</span> <span id="detailStar" class="star'+(favs.has(x.s)?' on':'')+'" title="즐겨찾기" onclick="toggleFav(\''+x.s+'\')">★</span></h2>';
@@ -582,13 +582,12 @@ function renderAlertList(sym){
 function checkAlerts(){
   var a=loadAlerts(), changed=false;
   a.forEach(function(x){ if(x.fired)return; var c=C.find(function(cc){return cc.s===x.sym;}); if(!c||c.px==null)return; var hit=(x.dir==='above'&&c.px>=x.price)||(x.dir==='below'&&c.px<=x.price); if(hit){x.fired=true;changed=true;fireAlert(c,x);} });
-  if(changed)saveAlerts(a);
+  if(changed){saveAlerts(a); var xx=C.find(function(c){return c.s===sel;}); if(xx)renderAlertList(xx.s);}
 }
 function fireAlert(c,x){
   var msg=c.s+' '+fmt(c.px,decOf(c.px))+' — '+fmt(x.price,decOf(x.price))+(x.dir==='above'?' 이상 도달':' 이하 도달');
   try{ if('Notification' in window && Notification.permission==='granted') new Notification('🔔 AUREUM 가격 알림',{body:msg}); }catch(e){}
   showToast('🔔 '+msg);
-  if(sel===c.s)renderAlertList(c.s);
 }
 function showToast(t){ var el=document.getElementById('toast'); if(!el){el=document.createElement('div');el.id='toast';document.body.appendChild(el);} el.textContent=t; el.className='show'; clearTimeout(window._toastT); window._toastT=setTimeout(function(){el.className='';},5500); }
 /* 지표 정직 검증(백테스트) */
