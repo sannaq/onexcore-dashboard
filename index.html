@@ -92,6 +92,14 @@
   .gbar .gf{position:absolute;left:0;top:0;bottom:0;border-radius:999px;background:linear-gradient(180deg,color-mix(in srgb,var(--up) 92%,#fff),var(--up));box-shadow:0 0 9px color-mix(in srgb,var(--up) 45%,transparent);transition:width .85s cubic-bezier(.22,.9,.3,1);width:0}
   .gbar .gl,.gbar .gr{position:absolute;top:0;bottom:0;display:flex;align-items:center;font-size:11.5px;font-weight:800;color:#fff;z-index:2;text-shadow:0 1px 2px rgba(0,0,0,.5)}
   .gbar .gl{left:12px}.gbar .gr{right:12px}
+  .calcgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}
+  .calcgrid label{display:flex;flex-direction:column;gap:3px;font-size:11px;font-weight:700;color:var(--sub)}
+  .calcgrid input{padding:9px 10px;border-radius:9px;border:1px solid var(--line);background:var(--panel);color:var(--txt);font-size:15px;font-family:inherit;outline:none;width:100%;font-variant-numeric:tabular-nums}
+  .calcgrid input:focus{border-color:var(--accent)}
+  .calcrow{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;padding:4px 0;border-bottom:1px solid var(--line)}
+  .calcrow:last-child{border:none}
+  .calcok{font-size:11.5px;margin-top:7px;color:var(--up);line-height:1.5;font-weight:700}
+  .calcwarn{font-size:11.5px;margin-top:7px;color:var(--down);line-height:1.5;font-weight:800}
   .livebadge{font-size:9px;font-weight:800;color:#fff;background:var(--down);padding:2px 7px;border-radius:20px;letter-spacing:.5px;animation:pulseLive 1.5s infinite}
   @keyframes pulseLive{50%{opacity:.4}}@media(prefers-reduced-motion:reduce){.livebadge{animation:none}.gbar .gf{transition:none}}
   .rsub{font-size:12.5px;color:var(--sub);margin-top:7px;line-height:1.5}
@@ -438,6 +446,37 @@ function updateLiveTaker(force){
   var gr=el.querySelector('.gr'); if(gr)gr.textContent='매도 '+(100-bp).toFixed(1)+'%';
   var amt=document.getElementById('liveamt'); if(amt)amt.innerHTML='매수 <b class="up">$'+fmtAmt(b)+'</b> · 매도 <b class="down">$'+fmtAmt(s)+'</b> · '+cnt+'건 <span class="muted">(최근 90초 공격적 체결)</span>';
 }
+/* 포지션 사이즈 · 리스크 계산기 */
+function money(v){ v=+v||0; return '$'+v.toLocaleString('en-US',{maximumFractionDigits:v<1000?2:0}); }
+function calcPos(){
+  var out=document.getElementById('calcOut'); if(!out)return;
+  var bal=+(document.getElementById('cBal')||{}).value||0;
+  var rk=+(document.getElementById('cRisk')||{}).value||0;
+  var en=+(document.getElementById('cEntry')||{}).value||0;
+  var st=+(document.getElementById('cStop')||{}).value||0;
+  try{localStorage.setItem('oxbal',bal);localStorage.setItem('oxrisk',rk);}catch(e){}
+  if(!(bal>0&&rk>0&&en>0&&st>0&&en!==st)){ out.innerHTML='<div class="muted" style="font-size:11.5px">시드·리스크·진입·손절을 채우면 자동 계산됩니다.</div>'; return; }
+  var lev=curLev||1;
+  var riskAmt=bal*rk/100;
+  var stopDist=Math.abs(en-st)/en;
+  var notional=riskAmt/stopDist;
+  var qty=notional/en;
+  var margin=notional/lev;
+  var marginPct=margin/bal*100;
+  var liqFrac=Math.max(0.0005,1/lev-0.005);
+  var stopFirst=stopDist<liqFrac;
+  var sy=(typeof sel!=='undefined'&&sel)?sel:'';
+  function R(k,v){return '<div class="calcrow"><span class="muted">'+k+'</span><span class="num">'+v+'</span></div>';}
+  var h=R('리스크 금액 (잃을 각오)', '<b class="down">'+money(riskAmt)+'</b> · '+rk+'%')
+    +R('손절까지 거리', (stopDist*100).toFixed(2)+'%')
+    +R('포지션 명목가치', money(notional))
+    +R('진입 수량', qty.toLocaleString('en-US',{maximumFractionDigits:qty<1?4:2})+' '+sy)
+    +R('필요 증거금 ('+lev+'x)', money(margin)+' <span class="'+(marginPct>100?'down':'muted')+'">('+marginPct.toFixed(marginPct<10?1:0)+'% of 시드)</span>');
+  if(marginPct>100) h+='<div class="calcwarn">⚠️ 필요 증거금이 시드를 초과합니다. 레버리지를 높이거나(⚙️) 리스크%·포지션을 줄이세요.</div>';
+  else if(!stopFirst) h+='<div class="calcwarn">⚠️ '+lev+'x에선 손절('+(stopDist*100).toFixed(2)+'%) 전에 청산('+(liqFrac*100).toFixed(2)+'%)됩니다. 레버리지를 낮추세요.</div>';
+  else h+='<div class="calcok">✅ 손절 맞으면 딱 '+money(riskAmt)+'('+rk+'%)만 잃습니다. 증거금 '+money(margin)+'로 계획대로 실행 가능.</div>';
+  out.innerHTML=h;
+}
 const LIM={'1m':300,'5m':300,'30m':300,'1h':300,'4h':300,'1d':300};
 function ema(v,p){var k=2/(p+1),e=v[0],o=[e],i;for(i=1;i<v.length;i++){e=v[i]*k+e*(1-k);o.push(e);}return o;}
 const IVMS={'1m':60000,'5m':300000,'30m':1800000,'1h':3600000,'4h':14400000,'1d':86400000};
@@ -451,7 +490,7 @@ function toggleLiq(){liqOn=!liqOn;try{localStorage.setItem('oxliq',liqOn?'1':'0'
 var curLev=25; try{var _sl=+localStorage.getItem('oxlev'); if(_sl)curLev=_sl;}catch(e){}
 function maxLevOf(x){ return x&&x.bn ? 75 : 20; }
 function levStepsOf(x){ return x&&x.bn ? [5,10,20,25,50,75] : [3,5,10,20]; }
-function setLev(n){ curLev=n; try{localStorage.setItem('oxlev',n);}catch(e){} var x=C.find(function(c){return c.s===sel;}); if(x){ renderLevBlock(x); if(liqOn&&chartOn) drawChart(x); } }
+function setLev(n){ curLev=n; try{localStorage.setItem('oxlev',n);}catch(e){} var x=C.find(function(c){return c.s===sel;}); if(x){ renderLevBlock(x); if(typeof calcPos==='function')calcPos(); if(liqOn&&chartOn) drawChart(x); } }
 function renderLevBlock(x){
   var el=document.getElementById('levblk'); if(!el)return;
   var d=(x.dec!=null?x.dec:decOf(x.px)), sg=window._sig, mx=maxLevOf(x);
@@ -644,9 +683,20 @@ async function fetchFlow(x){
      +'<div class="lqrow"><span class="muted">손익비 (매수가 기준)</span><span class="num">'+(rr>0?('약 '+rr.toFixed(1)+' : 1'):'-')+'</span></div>'
      +'<div class="muted" style="font-size:11px;margin-top:6px;line-height:1.5">회귀 채널·거래량 기반 계산값입니다. 확정 예측·매수 신호가 아니며, 진입·손절·목표는 본인 판단으로 조정하세요.</div></div>';
     h+='<div id="levblk" class="lqcard" style="margin-top:10px"></div>';
+    var _bal='', _rk='1'; try{_bal=localStorage.getItem('oxbal')||'';_rk=localStorage.getItem('oxrisk')||'1';}catch(e){}
+    var _pd=Math.max(2,decOf(x.px));
+    h+='<div id="calcbox" class="lqcard" style="margin-top:10px">'
+     +'<div class="lqh">🧮 포지션 계산기 <span class="muted" style="font-weight:400;text-transform:none">(리스크 관리 · '+curLev+'x 기준)</span></div>'
+     +'<div class="calcgrid">'
+     +'<label>시드 (USDT)<input id="cBal" type="number" inputmode="decimal" placeholder="예: 1000" value="'+_bal+'" oninput="calcPos()"></label>'
+     +'<label>1회 리스크 %<input id="cRisk" type="number" inputmode="decimal" placeholder="1~2" value="'+_rk+'" oninput="calcPos()"></label>'
+     +'<label>진입가<input id="cEntry" type="number" inputmode="decimal" value="'+(+lower.toFixed(_pd))+'" oninput="calcPos()"></label>'
+     +'<label>손절가<input id="cStop" type="number" inputmode="decimal" value="'+(+stop.toFixed(_pd))+'" oninput="calcPos()"></label>'
+     +'</div><div id="calcOut"></div>'
+     +'<div class="muted" style="font-size:11px;margin-top:6px;line-height:1.5">레버리지는 위 ⚙️에서 고른 '+curLev+'x 사용. 손절 시 계좌의 리스크%만 잃도록 수량을 역산합니다.</div></div>';
     box.innerHTML=h;
     box.querySelectorAll('.gf[data-w]').forEach(function(f){ var w=f.dataset.w; requestAnimationFrame(function(){ f.style.width=w+'%'; }); }); // 캡슐 채움 애니메이션
-    updateLiveTaker(true);
+    updateLiveTaker(true); calcPos();
     var tsEl=document.getElementById('topsig');
     if(tsEl){
       var dir=(sl>=0)?'long':'short', e,tg,sp,srr;
