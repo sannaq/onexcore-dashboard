@@ -113,6 +113,11 @@
   .jlv{font-size:12px;margin-top:4px}
   .jmemo{font-size:12px;margin-top:6px;line-height:1.5;color:var(--sub)}
   .jbtns{display:flex;gap:6px;margin-top:8px}
+  #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:var(--accent);color:#fff;padding:12px 18px;border-radius:12px;font-size:13px;font-weight:800;box-shadow:0 10px 34px rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:.35s;z-index:2000;max-width:90vw;text-align:center}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .alrow{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  .alrow select,.alrow input{padding:8px 10px;border-radius:9px;border:1px solid var(--line);background:var(--panel);color:var(--txt);font-size:14px;font-family:inherit;outline:none}
+  .alrow input{flex:1;min-width:90px}
   .livebadge{font-size:9px;font-weight:800;color:#fff;background:var(--down);padding:2px 7px;border-radius:20px;letter-spacing:.5px;animation:pulseLive 1.5s infinite}
   @keyframes pulseLive{50%{opacity:.4}}@media(prefers-reduced-motion:reduce){.livebadge{animation:none}.gbar .gf{transition:none}}
   .rsub{font-size:12.5px;color:var(--sub);margin-top:7px;line-height:1.5}
@@ -556,6 +561,36 @@ function renderJournal(){
     return '<div class="jitem">'+head+'<div class="jlv muted">'+lv+'</div>'+memo+lesson+'<div class="jbtns">'+btns+'</div></div>';
   }).join('');
 }
+/* 가격 알림 (앱 열려있을 때) */
+function loadAlerts(){try{return JSON.parse(localStorage.getItem('oxalerts')||'[]');}catch(e){return[];}}
+function saveAlerts(a){try{localStorage.setItem('oxalerts',JSON.stringify(a));}catch(e){}}
+function addAlertFromDetail(){
+  var x=C.find(function(c){return c.s===sel;}); if(!x)return;
+  var price=+(document.getElementById('alPrice')||{}).value||0, dir=(document.getElementById('alDir')||{}).value||'above';
+  if(!(price>0)){alert('가격을 입력하세요.');return;}
+  try{ if('Notification' in window && Notification.permission==='default')Notification.requestPermission(); }catch(e){}
+  var a=loadAlerts(); a.push({id:Date.now(),sym:x.s,price:price,dir:dir,base:x.px,fired:false});
+  saveAlerts(a); var pe=document.getElementById('alPrice'); if(pe)pe.value=''; renderAlertList(x.s);
+}
+function removeAlert(id){ saveAlerts(loadAlerts().filter(function(a){return a.id!==id;})); var x=C.find(function(c){return c.s===sel;}); if(x)renderAlertList(x.s); }
+function renderAlertList(sym){
+  var el=document.getElementById('allist'); if(!el)return;
+  var a=loadAlerts().filter(function(x){return x.sym===sym;});
+  if(!a.length){el.innerHTML='<div class="muted" style="font-size:11.5px">설정된 알림이 없어요.</div>';return;}
+  el.innerHTML=a.map(function(x){return '<div class="lqrow"><span class="'+(x.dir==='above'?'up':'down')+'">'+(x.dir==='above'?'▲ ':'▼ ')+fmt(x.price,decOf(x.price))+' '+(x.dir==='above'?'이상':'이하')+'</span><span>'+(x.fired?'<span class="muted" style="font-size:11px">✓ 울림 </span>':'')+'<button class="tf" onclick="removeAlert('+x.id+')">삭제</button></span></div>';}).join('');
+}
+function checkAlerts(){
+  var a=loadAlerts(), changed=false;
+  a.forEach(function(x){ if(x.fired)return; var c=C.find(function(cc){return cc.s===x.sym;}); if(!c||c.px==null)return; var hit=(x.dir==='above'&&c.px>=x.price)||(x.dir==='below'&&c.px<=x.price); if(hit){x.fired=true;changed=true;fireAlert(c,x);} });
+  if(changed)saveAlerts(a);
+}
+function fireAlert(c,x){
+  var msg=c.s+' '+fmt(c.px,decOf(c.px))+' — '+fmt(x.price,decOf(x.price))+(x.dir==='above'?' 이상 도달':' 이하 도달');
+  try{ if('Notification' in window && Notification.permission==='granted') new Notification('🔔 AUREUM 가격 알림',{body:msg}); }catch(e){}
+  showToast('🔔 '+msg);
+  if(sel===c.s)renderAlertList(c.s);
+}
+function showToast(t){ var el=document.getElementById('toast'); if(!el){el=document.createElement('div');el.id='toast';document.body.appendChild(el);} el.textContent=t; el.className='show'; clearTimeout(window._toastT); window._toastT=setTimeout(function(){el.className='';},5500); }
 /* 지표 정직 검증(백테스트) */
 function slopeOf(v){var n=v.length,sx=0,sy=0,sxy=0,sxx=0;for(var i=0;i<n;i++){sx+=i;sy+=v[i];sxy+=i*v[i];sxx+=i*i;}var den=n*sxx-sx*sx;return den?(n*sxy-sx*sy)/den:0;}
 async function runBacktest(){
@@ -802,6 +837,10 @@ async function fetchFlow(x){
      +'<div class="muted" style="font-size:11px;margin-top:6px;line-height:1.5">회귀 채널·거래량 기반 계산값입니다. 확정 예측·매수 신호가 아니며, 진입·손절·목표는 본인 판단으로 조정하세요.</div></div>';
     h+='<div id="levblk" class="lqcard" style="margin-top:10px"></div>';
     h+='<div id="btwrap" class="lqcard" style="margin-top:10px"><button class="tf" onclick="runBacktest()">🔬 이 지표 과거에 맞았나 검증</button><div id="btbox" style="margin-top:8px"></div></div>';
+    h+='<div id="alertbox" class="lqcard" style="margin-top:10px"><div class="lqh">🔔 가격 알림</div>'
+     +'<div class="alrow"><select id="alDir"><option value="above">이상</option><option value="below">이하</option></select><input id="alPrice" type="number" inputmode="decimal" placeholder="목표 가격"><button class="tf" onclick="addAlertFromDetail()">＋ 추가</button></div>'
+     +'<div id="allist" style="margin-top:8px"></div>'
+     +'<div class="muted" style="font-size:11px;margin-top:6px;line-height:1.5">앱(탭)이 켜져 있을 때 도달하면 알림이 뜹니다. 완전히 종료한 상태의 푸시는 서버가 필요해 지원되지 않아요.</div></div>';
     var _bal='', _rk='1'; try{_bal=localStorage.getItem('oxbal')||'';_rk=localStorage.getItem('oxrisk')||'1';}catch(e){}
     var _pd=Math.max(2,decOf(x.px));
     h+='<div id="calcbox" class="lqcard" style="margin-top:10px">'
@@ -816,7 +855,7 @@ async function fetchFlow(x){
      +'<button class="tf" style="margin-top:9px" onclick="logCurrentToJournal()">📓 이 설정 일지에 기록</button></div>';
     box.innerHTML=h;
     box.querySelectorAll('.gf[data-w]').forEach(function(f){ var w=f.dataset.w; requestAnimationFrame(function(){ f.style.width=w+'%'; }); }); // 캡슐 채움 애니메이션
-    updateLiveTaker(true); calcPos();
+    updateLiveTaker(true); calcPos(); renderAlertList(x.s);
     var tsEl=document.getElementById('topsig');
     if(tsEl){
       var dir=(sl>=0)?'long':'short', e,tg,sp,srr;
@@ -873,6 +912,7 @@ setInterval(flushTicks, 1200);
 document.addEventListener('visibilitychange',function(){ if(!document.hidden){ tickDirty=true; flushTicks(); if(typeof live==='function')live(); var xx=(typeof sel!=='undefined')?sel:null; if(xx&&typeof showDetail==='function')showDetail(xx); } });
 startTickerWS();
 if(typeof renderJournal==='function')renderJournal();
+setInterval(checkAlerts,4000);
 live();setInterval(live,45000);setInterval(stamp,1000);
 function relTime(d){var s=(Date.now()-d)/1000; if(s<60)return '방금 전'; if(s<3600)return Math.floor(s/60)+'분 전'; if(s<86400)return Math.floor(s/3600)+'시간 전'; return Math.floor(s/86400)+'일 전';}
 function sentiment(t){var neg=['하락','급락','규제','금지','관세','해킹','청산','폭락','우려','경고','소송','제재','유출','하향','파산','연기','거부','약세','손실','벌금','압류','위기','충격','매도','부진','논란'];var pos=['상승','급등','호재','승인','채택','도입','유입','신고가','돌파','완화','호조','성장','상향','상장','파트너','투자','반등','회복','매수','기대','최고','호실적','흥행'];for(var i=0;i<neg.length;i++)if(t.indexOf(neg[i])>-1)return 'neg';for(var j=0;j<pos.length;j++)if(t.indexOf(pos[j])>-1)return 'pos';return 'neu';}
