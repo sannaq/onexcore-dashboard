@@ -440,10 +440,12 @@ async function drawChart(x){
     chart.timeScale().fitContent();
     var lastBar=Object.assign({},data[data.length-1]);
     var iv=IVMS[curInterval]||900000;
-    chartTimer=setInterval(function(){ fetch(url).then(r=>r.json()).then(function(rw){ if(Array.isArray(rw)){var bars=toBars(rw); cs.setData(bars); lastBar=Object.assign({},bars[bars.length-1]);} }).catch(function(){}); }, 30000);
-    try{ chartWS=new WebSocket('wss://data-stream.binance.vision/ws/'+x.bn.toLowerCase()+'@aggTrade');
-      chartWS.onmessage=function(ev){ try{var m=JSON.parse(ev.data); var p=+m.p; if(!p)return; var bt=Math.floor((m.T||Date.now())/iv)*iv/1000; if(!lastBar||bt>lastBar.time){lastBar={time:bt,open:p,high:p,low:p,close:p};} else {if(p>lastBar.high)lastBar.high=p; if(p<lastBar.low)lastBar.low=p; lastBar.close=p;} cs.update(lastBar); }catch(e){} };
-    }catch(e){}
+    chartTimer=setInterval(function(){ fetch(url).then(r=>r.json()).then(function(rw){ if(Array.isArray(rw)){var bars=toBars(rw); cs.setData(bars); lastBar=Object.assign({},bars[bars.length-1]);} }).catch(function(){}); }, 15000);
+    function openWS(){ try{ chartWS=new WebSocket('wss://data-stream.binance.vision/ws/'+x.bn.toLowerCase()+'@aggTrade');
+      chartWS.onmessage=function(ev){ try{var m=JSON.parse(ev.data); var p=+m.p; if(!p)return; var bt=Math.floor((m.T||Date.now())/iv)*iv/1000; if(!lastBar||bt>lastBar.time){lastBar={time:bt,open:p,high:p,low:p,close:p};} else {if(p>lastBar.high)lastBar.high=p; if(p<lastBar.low)lastBar.low=p; lastBar.close=p;} cs.update(lastBar); var dp=det.querySelector('.price'); if(dp&&sel===x.s)dp.textContent=fmt(p,x.dec||2); }catch(e){} };
+      chartWS.onclose=function(){ if(sel===x.s && chartObj){ setTimeout(function(){ if(sel===x.s && chartObj) openWS(); },2000); } };
+    }catch(e){} }
+    openWS();
   }catch(e){el.innerHTML='<div class="muted" style="padding:24px;text-align:center;font-size:12px">차트 데이터를 불러오지 못했어요</div>';}
 }
 async function fetchDepth(x){
@@ -543,6 +545,25 @@ q.oninput=()=>render(q.value);
 [...document.querySelectorAll('.chip')].forEach(c=>{const go=()=>{q.value=c.dataset.s;render(q.value);sel=c.dataset.s;showDetail(sel);if(window.innerWidth<=780){document.body.classList.add('detail-open');window.scrollTo({top:0,behavior:'smooth'});}};c.onclick=go;c.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}};});
 render('');showDetail('SOL');stamp();
 function setDevice(){var m=window.innerWidth<=780;document.body.classList.toggle('is-mobile',m);document.body.classList.toggle('is-pc',!m);} setDevice(); window.addEventListener('resize',setDevice);
+/* 전 종목 실시간 시세 (spot miniTicker) */
+var tickerWS=null, tickDirty=false;
+function startTickerWS(){
+  var syms=C.filter(function(x){return x.bn;}).map(function(x){return x.bn.toLowerCase()+'@miniTicker';});
+  if(!syms.length)return;
+  try{
+    tickerWS=new WebSocket('wss://data-stream.binance.vision/stream?streams='+syms.join('/'));
+    tickerWS.onmessage=function(ev){ try{var j=JSON.parse(ev.data), d=j.data; if(!d||!d.s)return; var x=C.find(function(c){return c.bn===d.s;}); if(!x)return; x.px=+d.c; x.hi=+d.h; x.lo=+d.l; if(+d.o)x.c=(+d.c-+d.o)/+d.o*100; recalc(x); tickDirty=true; }catch(e){} };
+    tickerWS.onclose=function(){ setTimeout(startTickerWS,3000); };
+  }catch(e){}
+}
+setInterval(function(){ if(!tickDirty)return; tickDirty=false;
+  [...list.querySelectorAll('.li[data-s]')].forEach(function(row){ var x=C.find(function(c){return c.s===row.dataset.s;}); if(!x)return;
+    var pe=row.querySelector('.px'); if(pe){pe.textContent=x._disp; pe.className='px num '+(x.c>=0?'up':(x.c==null?'':'down'));}
+    var ce=row.querySelector('.chg'); if(ce&&x.c!=null){ce.textContent=(x.c>=0?'+':'')+(+x.c).toFixed(2)+'%'; ce.className='chg num '+(x.c>=0?'up':'down');}
+  });
+  var xs=C.find(function(c){return c.s===sel;}); if(xs){var dp=det.querySelector('.price'); if(dp)dp.textContent=xs._disp;}
+}, 1200);
+startTickerWS();
 live();setInterval(live,45000);setInterval(stamp,1000);
 function relTime(d){var s=(Date.now()-d)/1000; if(s<60)return '방금 전'; if(s<3600)return Math.floor(s/60)+'분 전'; if(s<86400)return Math.floor(s/3600)+'시간 전'; return Math.floor(s/86400)+'일 전';}
 function sentiment(t){var neg=['하락','급락','규제','금지','관세','해킹','청산','폭락','우려','경고','소송','제재','유출','하향','파산','연기','거부','약세','손실','벌금','압류','위기','충격','매도','부진','논란'];var pos=['상승','급등','호재','승인','채택','도입','유입','신고가','돌파','완화','호조','성장','상향','상장','파트너','투자','반등','회복','매수','기대','최고','호실적','흥행'];for(var i=0;i<neg.length;i++)if(t.indexOf(neg[i])>-1)return 'neg';for(var j=0;j<pos.length;j++)if(t.indexOf(pos[j])>-1)return 'pos';return 'neu';}
