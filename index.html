@@ -344,7 +344,7 @@ function showDetail(s){
   if(x.bn)h+='<div id="topsig" class="sigcard" style="display:none"></div>';
   if(x.bn){
     h+='<div class="tfrow"><button class="tf'+(chartOn?' on':'')+'" onclick="toggleChart()">'+(chartOn?'📉 차트끄기':'📈 차트보기')+'</button>';
-    if(chartOn){h+=[['1m','1분'],['5m','5분'],['30m','30분'],['1h','1시간'],['4h','4시간'],['1d','1일']].map(function(a){return '<button class="tf'+(curInterval===a[0]?' on':'')+'" onclick="setTf(\''+a[0]+'\')">'+a[1]+'</button>';}).join('')+'<button class="tf" onclick="saveChart()">📷 저장</button>'+'<button class="tf'+(liqOn?' on':'')+'" onclick="toggleLiq()">🔥 청산맵</button>';}
+    if(chartOn){h+=[['1m','1분'],['5m','5분'],['30m','30분'],['1h','1시간'],['4h','4시간'],['1d','1일']].map(function(a){return '<button class="tf'+(curInterval===a[0]?' on':'')+'" onclick="setTf(\''+a[0]+'\')">'+a[1]+'</button>';}).join('')+'<button class="tf" onclick="refreshChart()">🔄 새로고침</button>'+'<button class="tf" onclick="saveChart()">📷 저장</button>'+'<button class="tf'+(liqOn?' on':'')+'" onclick="toggleLiq()">🔥 청산맵</button>';}
     h+='</div>';
     if(chartOn){h+='<div class="chartlegend"><span class="lgd"><i style="border-color:#f6465d"></i>저항</span><span class="lgd"><i style="border-color:#2ebd85"></i>지지</span><span class="lgd"><i style="border-color:#4a9eff"></i>채널</span><span class="lgd"><i style="border-color:#e0a83e"></i>추세선</span><span class="lgd"><i style="border-color:#a06bff"></i>피보</span><span class="lgd"><i style="border-color:#ff9800"></i>매물대</span>'+(liqOn?'<span class="lgd"><i style="border-color:#f23645"></i>롱청산 <i style="border-color:#26a69a;margin-left:4px"></i>숏청산</span>':'')+'<span style="margin-left:auto">스크롤·핀치 확대/축소</span></div><div id="tvchart"></div>';}
   }
@@ -381,6 +381,8 @@ const FAPI='https://fapi.binance.com/fapi/v1/';
 let chartObj=null, curInterval='15m', chartTimer=null, chartOn=true, chartWS=null;
 try{chartOn=localStorage.getItem('oxchart')!=='0';}catch(e){}
 const LIM={'1m':180,'5m':180,'30m':160,'1h':168,'4h':180,'1d':150};
+const IVMS={'1m':60000,'5m':300000,'30m':1800000,'1h':3600000,'4h':14400000,'1d':86400000};
+function refreshChart(){ if(typeof live==='function')live(); if(sel)showDetail(sel); }
 function toBars(raw){return raw.map(k=>({time:Math.floor(k[0]/1000),open:+k[1],high:+k[2],low:+k[3],close:+k[4]}));}
 function setTf(iv){curInterval=iv; if(sel) showDetail(sel);}
 function toggleChart(){chartOn=!chartOn;try{localStorage.setItem('oxchart',chartOn?'1':'0');}catch(e){} if(sel)showDetail(sel);}
@@ -434,9 +436,10 @@ async function drawChart(x){
     })();
     chart.timeScale().fitContent();
     var lastBar=Object.assign({},data[data.length-1]);
-    chartTimer=setInterval(function(){ fetch(url).then(r=>r.json()).then(function(rw){ if(Array.isArray(rw)){var bars=toBars(rw); cs.setData(bars); lastBar=Object.assign({},bars[bars.length-1]);} }).catch(function(){}); }, 90000);
+    var iv=IVMS[curInterval]||900000;
+    chartTimer=setInterval(function(){ fetch(url).then(r=>r.json()).then(function(rw){ if(Array.isArray(rw)){var bars=toBars(rw); cs.setData(bars); lastBar=Object.assign({},bars[bars.length-1]);} }).catch(function(){}); }, 30000);
     try{ chartWS=new WebSocket('wss://data-stream.binance.vision/ws/'+x.bn.toLowerCase()+'@aggTrade');
-      chartWS.onmessage=function(ev){ try{var m=JSON.parse(ev.data); var p=+m.p; if(!p||!lastBar)return; if(p>lastBar.high)lastBar.high=p; if(p<lastBar.low)lastBar.low=p; lastBar.close=p; cs.update(lastBar); }catch(e){} };
+      chartWS.onmessage=function(ev){ try{var m=JSON.parse(ev.data); var p=+m.p; if(!p)return; var bt=Math.floor((m.T||Date.now())/iv)*iv/1000; if(!lastBar||bt>lastBar.time){lastBar={time:bt,open:p,high:p,low:p,close:p};} else {if(p>lastBar.high)lastBar.high=p; if(p<lastBar.low)lastBar.low=p; lastBar.close=p;} cs.update(lastBar); }catch(e){} };
     }catch(e){}
   }catch(e){el.innerHTML='<div class="muted" style="padding:24px;text-align:center;font-size:12px">차트 데이터를 불러오지 못했어요</div>';}
 }
@@ -456,6 +459,7 @@ function volProfile(kl){
   var mi=0; for(var i=1;i<bins;i++)if(vol[i]>vol[mi])mi=i;
   return {low:lo+mi*w, high:lo+(mi+1)*w};
 }
+function rsiCalc(cl,p){ if(!cl||cl.length<p+1)return null; var g=0,l=0,i; for(i=1;i<=p;i++){var d=cl[i]-cl[i-1]; if(d>=0)g+=d; else l-=d;} g/=p; l/=p; for(i=p+1;i<cl.length;i++){var dd=cl[i]-cl[i-1], gg=dd>0?dd:0, ll=dd<0?-dd:0; g=(g*(p-1)+gg)/p; l=(l*(p-1)+ll)/p;} if(l===0)return 100; return 100-100/(1+g/l); }
 async function fetchFlow(x){
   const box=document.getElementById('flowbox'); if(!box||!x.bn) return;
   try{
@@ -476,6 +480,8 @@ async function fetchFlow(x){
     h+='<div class="rsub">Top Trader — <b class="up">롱 '+tL.toFixed(1)+'%</b> / <b class="down">숏 '+tS.toFixed(1)+'%</b></div>';
     h+='<div class="rsub">Taker 거래량 — 매수 <b>'+bV.toFixed(2)+'</b> / 매도 <b>'+sV.toFixed(2)+'</b> <span class="'+(bP>=50?'up':'down')+'">('+(bP>=50?'매수 우위':'매도 우위')+')</span></div>';
     if(poc)h+='<div class="rsub">📊 매물대 집중(POC) <b>'+fmt(poc.low,d)+' ~ '+fmt(poc.high,d)+'</b> — 이 구간 거래량 최다(지지·저항 역할↑)</div>';
+    var rv=rsiCalc(kl.map(function(k){return +k[4];}),14);
+    if(rv!=null){var rz=rv>=70?'<span class="down">과매수</span>':rv<=30?'<span class="up">과매도</span>':'중립'; h+='<div class="rsub">📈 RSI(14) <b>'+rv.toFixed(1)+'</b> · '+rz+' <span class="muted">(70↑ 과매수 · 30↓ 과매도)</span></div>';}
     // 차트 기반 참고 레벨 (회귀 채널)
     var n=kl.length, sx=0,sy=0,sxy=0,sxx=0;
     for(var i=0;i<n;i++){var cl=+kl[i][4]; sx+=i; sy+=cl; sxy+=i*cl; sxx+=i*i;}
