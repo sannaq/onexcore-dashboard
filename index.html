@@ -433,9 +433,10 @@ async function drawChart(x){
       s.setData(pts);
     })();
     chart.timeScale().fitContent();
-    chartTimer=setInterval(function(){ fetch(url).then(r=>r.json()).then(function(rw){ if(Array.isArray(rw)) cs.setData(toBars(rw)); }).catch(function(){}); }, 90000);
-    try{ chartWS=new WebSocket('wss://fstream.binance.com/ws/'+x.bn.toLowerCase()+'@kline_'+curInterval);
-      chartWS.onmessage=function(ev){ try{var m=JSON.parse(ev.data); if(m.k) cs.update({time:Math.floor(m.k.t/1000),open:+m.k.o,high:+m.k.h,low:+m.k.l,close:+m.k.c}); }catch(e){} };
+    var lastBar=Object.assign({},data[data.length-1]);
+    chartTimer=setInterval(function(){ fetch(url).then(r=>r.json()).then(function(rw){ if(Array.isArray(rw)){var bars=toBars(rw); cs.setData(bars); lastBar=Object.assign({},bars[bars.length-1]);} }).catch(function(){}); }, 90000);
+    try{ chartWS=new WebSocket('wss://data-stream.binance.vision/ws/'+x.bn.toLowerCase()+'@aggTrade');
+      chartWS.onmessage=function(ev){ try{var m=JSON.parse(ev.data); var p=+m.p; if(!p||!lastBar)return; if(p>lastBar.high)lastBar.high=p; if(p<lastBar.low)lastBar.low=p; lastBar.close=p; cs.update(lastBar); }catch(e){} };
     }catch(e){}
   }catch(e){el.innerHTML='<div class="muted" style="padding:24px;text-align:center;font-size:12px">차트 데이터를 불러오지 못했어요</div>';}
 }
