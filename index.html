@@ -75,9 +75,11 @@
   @media(min-width:781px){#tvchart{height:400px}.list{max-height:600px}}
   #tvchart{width:100%;height:300px;margin:8px 0 4px;border:1px solid var(--line);border-radius:10px;overflow:hidden;position:relative}
   .chartlegend{display:flex;gap:12px;flex-wrap:wrap;font-size:11.5px;color:var(--sub);margin:12px 0 2px;align-items:center}
-  .lgd{display:inline-flex;align-items:center;gap:5px;cursor:pointer;padding:3px 7px;border-radius:14px;border:1px solid transparent;user-select:none}
-  .lgd:hover{border-color:var(--line)}
-  .lgd.off{opacity:.38;text-decoration:line-through}
+  .lgd{display:inline-flex;align-items:center;gap:5px;cursor:pointer;padding:5px 10px;border-radius:14px;border:1px solid var(--line);background:var(--panel2);user-select:none;font-weight:600;color:var(--txt)}
+  .lgd:hover{border-color:var(--accent)}
+  .lgd.off{opacity:.5;text-decoration:line-through;background:transparent;color:var(--sub)}
+  .sect{font-size:11px;font-weight:800;letter-spacing:.5px;color:var(--sub);text-transform:uppercase;margin:18px 0 9px;padding-top:13px;border-top:1px solid var(--line)}
+  .sect:first-of-type{border-top:none;padding-top:0;margin-top:14px}
   .lgd i{width:15px;height:0;border-top:2px solid;display:inline-block}
   .tfrow{display:flex;gap:6px;margin:12px 0 0;flex-wrap:wrap}
   .tf{padding:5px 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--sub);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
@@ -430,10 +432,11 @@ function showDetail(s){
   h+='<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span class="price num">'+x._disp+'</span>'+chgHtml(x.c)+'<span class="pill '+t[1]+'">'+t[0]+'</span></div>';
   if(x.bn)h+='<div id="topsig" class="sigcard" style="display:none"></div>';
   if(x.bn){
+    h+='<div class="sect">📈 차트</div>';
     h+='<div class="tfrow"><button class="tf'+(chartOn?' on':'')+'" onclick="toggleChart()">'+(chartOn?'📉 차트끄기':'📈 차트보기')+'</button>';
     if(chartOn){h+='<button class="tf'+(autoTf?' on':'')+'" onclick="toggleAutoTf()" title="줌 레벨에 맞춰 시간봉 자동 전환">🅰 자동</button>'+[['1m','1분'],['5m','5분'],['30m','30분'],['1h','1시간'],['4h','4시간'],['1d','1일']].map(function(a){return '<button class="tf'+(curInterval===a[0]?' on':'')+'" onclick="setTf(\''+a[0]+'\')">'+a[1]+'</button>';}).join('')+'<button class="tf" onclick="refreshChart()">🔄 새로고침</button>'+'<button class="tf" onclick="saveChart()">📷 저장</button>'+'<button class="tf'+(liqOn?' on':'')+'" onclick="toggleLiq()">🔥 청산맵</button>';}
     h+='</div>';
-    if(chartOn){h+='<div class="chartlegend">'
+    if(chartOn){h+='<div class="chartlegend"><span class="muted" style="align-self:center;font-weight:700;font-size:11px">선 표시 ›</span>'
       +'<span class="lgd'+(lineOn.sr?'':' off')+'" data-k="sr" onclick="toggleLine(\'sr\')"><i style="border-color:#2ebd85"></i>지지/저항</span>'
       +'<span class="lgd'+(lineOn.ch?'':' off')+'" data-k="ch" onclick="toggleLine(\'ch\')"><i style="border-color:#4a9eff"></i>채널</span>'
       +'<span class="lgd'+(lineOn.tr?'':' off')+'" data-k="tr" onclick="toggleLine(\'tr\')"><i style="border-color:#e0a83e"></i>추세선</span>'
@@ -447,12 +450,13 @@ function showDetail(s){
     const span=x.hi-x.lo,f382=x.hi-0.382*span,f618=x.hi-0.618*span;
     const bpTxt=x.bp!=null?('<span class="fill"><span style="width:'+x.bp+'%"></span></span> '+x.bp+'%'):'<span class="muted">로딩…</span>';
     const reason='레인지 '+x._rp+'%'+(x._rp>=85?' (고점권·추격 롱 손익비 불리)':x._rp<=25?' (저점권)':'')+(x.bp!=null?(' · 매수세 '+x.bp+'%'+(x.bp<=30?' (매도우위)':x.bp>=55?' (매수우위)':' (균형)')):'')+' · 펀딩 '+(x.fund||'—')+'.';
-    h+='<div style="margin-top:14px"><div class="kv"><span class="muted">24h 레인지 위치</span><span class="num"><span class="bar"><i style="left:'+x._rp+'%"></i></span> '+x._rp+'%</span></div>'
+    h+='<div class="sect">📊 24h 시세 요약</div>'
+      +'<div><div class="kv"><span class="muted">24h 레인지 위치</span><span class="num"><span class="bar"><i style="left:'+x._rp+'%"></i></span> '+x._rp+'%</span></div>'
       +'<div class="kv"><span class="muted">매수세 (호가)</span><span class="num">'+bpTxt+'</span></div>'
       +'<div class="kv"><span class="muted">저항 (돌파목표)</span><span class="num" style="font-weight:700">'+fmt(x.hi,d)+'</span></div>'
       +'<div class="kv"><span class="muted">지지</span><span class="num" style="font-weight:700">'+fmt(x.lo,d)+'</span></div></div>'
       +'<p style="font-size:12.5px;color:var(--sub);line-height:1.6;margin:12px 0 0">'+reason+'</p>'
-      +(x.bn?'<div id="flowbox" class="flowcard"><div class="muted" style="font-size:12px">롱·숏 & 매물대 불러오는 중…</div></div>':'')
+      +(x.bn?'<div class="sect">📊 수급 · 매매 판단 · 도구</div><div id="flowbox" class="flowcard"><div class="muted" style="font-size:12px">롱·숏 & 매물대 불러오는 중…</div></div>':'')
       +chart;
     if(x.bn&&x.bp==null)fetchDepth(x);
   }else{
