@@ -556,6 +556,32 @@ function renderJournal(){
     return '<div class="jitem">'+head+'<div class="jlv muted">'+lv+'</div>'+memo+lesson+'<div class="jbtns">'+btns+'</div></div>';
   }).join('');
 }
+/* 지표 정직 검증(백테스트) */
+function slopeOf(v){var n=v.length,sx=0,sy=0,sxy=0,sxx=0;for(var i=0;i<n;i++){sx+=i;sy+=v[i];sxy+=i*v[i];sxx+=i*i;}var den=n*sxx-sx*sx;return den?(n*sxy-sx*sy)/den:0;}
+async function runBacktest(){
+  var bt=document.getElementById('btbox'); if(!bt)return;
+  var x=C.find(function(c){return c.s===sel;}); if(!x||!x.bn){bt.innerHTML='<div class="muted" style="font-size:12px">크립토 종목에서만 가능합니다.</div>';return;}
+  bt.innerHTML='<div class="muted" style="font-size:12px">과거 500봉 분석 중…</div>';
+  try{
+    var kl=await fetch(FAPI+'klines?symbol='+x.bn+'&interval=4h&limit=500').then(function(r){return r.json();});
+    if(!Array.isArray(kl)||kl.length<80){bt.innerHTML='<div class="muted" style="font-size:12px">데이터가 부족합니다.</div>';return;}
+    var cl=kl.map(function(k){return +k[4];}), fwd=6; // 6봉=24h
+    var osN=0,osUp=0,osSum=0, obN=0,obDn=0,obSum=0, upN=0,upUp=0;
+    for(var i=30;i<cl.length-fwd;i++){
+      var rsi=rsiCalc(cl.slice(0,i+1),14), ret=(cl[i+fwd]-cl[i])/cl[i]*100;
+      if(rsi!=null){ if(rsi<=30){osN++; if(ret>0)osUp++; osSum+=ret;} if(rsi>=70){obN++; if(ret<0)obDn++; obSum+=ret;} }
+      if(slopeOf(cl.slice(i-30,i+1))>0){upN++; if(ret>0)upUp++;}
+    }
+    function P(a,b){return b?a/b*100:0;}
+    function verdict(prob,n){ if(n<8)return '<span class="muted">표본 부족('+n+')</span>'; if(prob>=58)return '<span class="up">신뢰할만(엣지 있음)</span>'; if(prob<=42)return '<span class="down">오히려 반대로 감</span>'; return '<span class="down">엣지 약함 · 동전던지기</span>'; }
+    function R(k,v){return '<div class="lqrow"><span class="muted" style="max-width:52%">'+k+'</span><span class="num" style="font-size:12px;text-align:right">'+v+'</span></div>';}
+    bt.innerHTML='<div class="lqh">🔬 이 지표, 과거에 맞았나? <span class="muted" style="font-weight:400;text-transform:none">('+x.s+' · 4h·500봉 · 이후 24h)</span></div>'
+      +R('과매도(RSI≤30) 후 반등', osN+'회 · 상승 '+P(osUp,osN).toFixed(0)+'% · 평균 '+(osN?(osSum/osN).toFixed(2):'0')+'%<br>'+verdict(P(osUp,osN),osN))
+      +R('과매수(RSI≥70) 후 하락', obN+'회 · 하락 '+P(obDn,obN).toFixed(0)+'% · 평균 '+(obN?(obSum/obN).toFixed(2):'0')+'%<br>'+verdict(P(obDn,obN),obN))
+      +R('상승추세 방향 지속', '다음 24h 상승 '+P(upUp,upN).toFixed(0)+'%<br>'+verdict(P(upUp,upN),upN))
+      +'<div class="muted" style="font-size:11px;margin-top:7px;line-height:1.5">⚠️ 과거 통계일 뿐 미래를 보장하지 않습니다. 확률이 50% 근처거나 표본이 적으면 그 지표는 이 종목에서 <b>신뢰도가 낮다</b>는 뜻이에요. 지표 맹신 금물 — 참고로만.</div>';
+  }catch(e){bt.innerHTML='<div class="muted" style="font-size:12px">분석에 실패했어요.</div>';}
+}
 function logCurrentToJournal(){
   var g=function(id){return (document.getElementById(id)||{}).value||'';};
   var sg=window._sig||{};
@@ -775,6 +801,7 @@ async function fetchFlow(x){
      +'<div class="lqrow"><span class="muted">손익비 (매수가 기준)</span><span class="num">'+(rr>0?('약 '+rr.toFixed(1)+' : 1'):'-')+'</span></div>'
      +'<div class="muted" style="font-size:11px;margin-top:6px;line-height:1.5">회귀 채널·거래량 기반 계산값입니다. 확정 예측·매수 신호가 아니며, 진입·손절·목표는 본인 판단으로 조정하세요.</div></div>';
     h+='<div id="levblk" class="lqcard" style="margin-top:10px"></div>';
+    h+='<div id="btwrap" class="lqcard" style="margin-top:10px"><button class="tf" onclick="runBacktest()">🔬 이 지표 과거에 맞았나 검증</button><div id="btbox" style="margin-top:8px"></div></div>';
     var _bal='', _rk='1'; try{_bal=localStorage.getItem('oxbal')||'';_rk=localStorage.getItem('oxrisk')||'1';}catch(e){}
     var _pd=Math.max(2,decOf(x.px));
     h+='<div id="calcbox" class="lqcard" style="margin-top:10px">'
