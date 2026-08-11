@@ -594,13 +594,16 @@ function startTickerWS(){
   conn('wss://fstream.binance.com',false); // 선물 우선
   setTimeout(function(){ if(!got && !fellBack && tickerWS){ fellBack=true; try{tickerWS.onclose=null;tickerWS.close();}catch(e){} conn('wss://data-stream.binance.vision',true); } },4000); // 막히면 현물 폴백
 }
-setInterval(function(){ if(!tickDirty)return; tickDirty=false;
+function flushTicks(){ if(!tickDirty)return; tickDirty=false;
   [...list.querySelectorAll('.li[data-s]')].forEach(function(row){ var x=C.find(function(c){return c.s===row.dataset.s;}); if(!x)return;
     var pe=row.querySelector('.px'); if(pe){pe.textContent=x._disp; pe.className='px num '+(x.c>=0?'up':(x.c==null?'':'down'));}
     var ce=row.querySelector('.chg'); if(ce&&x.c!=null){ce.textContent=(x.c>=0?'+':'')+(+x.c).toFixed(2)+'%'; ce.className='chg num '+(x.c>=0?'up':'down');}
   });
   var xs=C.find(function(c){return c.s===sel;}); if(xs){var dp=det.querySelector('.price'); if(dp)dp.textContent=xs._disp;}
-}, 1200);
+}
+setInterval(flushTicks, 1200);
+// 화면 복귀 시(백그라운드→포그라운드) 즉시 최신화 — 타이머 throttle 회복
+document.addEventListener('visibilitychange',function(){ if(!document.hidden){ tickDirty=true; flushTicks(); if(typeof live==='function')live(); var xx=(typeof sel!=='undefined')?sel:null; if(xx&&typeof showDetail==='function')showDetail(xx); } });
 startTickerWS();
 live();setInterval(live,45000);setInterval(stamp,1000);
 function relTime(d){var s=(Date.now()-d)/1000; if(s<60)return '방금 전'; if(s<3600)return Math.floor(s/60)+'분 전'; if(s<86400)return Math.floor(s/3600)+'시간 전'; return Math.floor(s/86400)+'일 전';}
