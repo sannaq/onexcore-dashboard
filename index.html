@@ -415,7 +415,7 @@ function chgHtml(c){if(c==null||isNaN(c))return '<span class="chg muted num">—
 function render(f){
   const term=(f||'').trim().toLowerCase();
   const rows=C.filter(x=>(!favOnly||!!term||favs.has(x.s))&&(!term||x.s.toLowerCase().includes(term)||x.k.toLowerCase().includes(term)));
-  list.innerHTML=rows.map(x=>{const t=TAG[x._st];const lb=x.bn?'<span class="live-b">●LIVE</span>':'';
+  list.innerHTML=rows.map(x=>{if(!x._st)recalc(x);const t=TAG[x._st]||TAG.base;const lb=x.bn?'<span class="live-b">●LIVE</span>':'';
     return '<div class="li'+(x.s===sel?' on':'')+'" data-s="'+x.s+'"><span class="star'+(favs.has(x.s)?' on':'')+'" onclick="toggleFav(\''+x.s+'\',event)">★</span><div class="sym">'+x.s+lb+'<small>'+esc(x.k)+'</small></div><span class="pill '+t[1]+'">'+t[0]+'</span>'+(x.c!=null?'<span class="dir '+(x.c>=0?'dir-long':'dir-short')+'">'+(x.c>=0?'롱':'숏')+'</span>':'')+chgHtml(x.c)+'<span class="px num '+(x.c>=0?'up':(x.c==null?'':'down'))+'">'+x._disp+'</span></div>';
   }).join('')||('<div class="li muted">'+((favOnly&&!term)?'즐겨찾기한 종목이 없어요 — 검색해서 별(★)을 눌러 추가하세요':'검색 결과 없음')+'</div>');
   var fc=document.getElementById('favchip'); if(fc)fc.classList.toggle('on',favOnly);
@@ -423,7 +423,7 @@ function render(f){
   [...list.querySelectorAll('.li[data-s]')].forEach(el=>el.onclick=()=>{sel=el.dataset.s;render(q.value);showDetail(sel);if(window.innerWidth<=780){document.body.classList.add('detail-open');window.scrollTo({top:0,behavior:'smooth'});}});
 }
 function showDetail(s){
-  const x=C.find(v=>v.s===s);if(!x){det.innerHTML='';return;}sel=s;const t=TAG[x._st];const d=x.dec||2;
+  const x=C.find(v=>v.s===s);if(!x){det.innerHTML='';document.body.classList.remove('detail-open');return;}sel=s;if(!x._st)recalc(x);const t=TAG[x._st]||TAG.base;const d=x.dec||2;
   if(chartTimer){clearInterval(chartTimer);chartTimer=null;} if(chartWS){try{chartWS.close()}catch(e){} chartWS=null;}
   const chart='<a class="cbtn" href="https://www.onexcore.com/trading/'+x.s.toLowerCase()+'usdt" target="_blank" rel="noopener">📈 ONEXCORE 차트 열기</a>';
   let h='<button class="backbtn" onclick="document.body.classList.remove(\'detail-open\');window.scrollTo({top:0})">◀ 목록으로</button><h2>상세 — '+x.s+(x.bn?' <span class="live-b">●LIVE</span>':' <span class="muted" style="font-weight:500;text-transform:none">(스냅샷)</span>')+' <span class="muted" style="text-transform:none;font-weight:500">'+esc(x.k)+'</span> <span id="detailStar" class="star'+(favs.has(x.s)?' on':'')+'" title="즐겨찾기" onclick="toggleFav(\''+x.s+'\')">★</span></h2>';
@@ -452,16 +452,6 @@ function showDetail(s){
       +'<div class="kv"><span class="muted">저항 (돌파목표)</span><span class="num" style="font-weight:700">'+fmt(x.hi,d)+'</span></div>'
       +'<div class="kv"><span class="muted">지지</span><span class="num" style="font-weight:700">'+fmt(x.lo,d)+'</span></div></div>'
       +'<p style="font-size:12.5px;color:var(--sub);line-height:1.6;margin:12px 0 0">'+reason+'</p>'
-      +'<div class="zone z1"><h3>▲ 롱 눌림목</h3><p>'+fmt(f618,d)+' ~ '+fmt(f382,d)+' (피보 0.618~0.382) 지지반응 시. 무효화 '+fmt(x.lo,d)+' 아래.</p></div>'
-      +'<div class="zone z2"><h3>▲ 돌파 추종</h3><p>'+fmt(x.hi,d)+' 종가+거래량 돌파 시 상방. 거래량 없으면 fakeout 주의.</p></div>'
-      +'<div class="zone z3"><h3>▼ 숏(반등매도)</h3><p>'+fmt(x.hi,d)+' 저항 거부 캔들 시. 손절 고가 위.</p></div>'
-      +'<div class="zone z4"><h3>✕ 진입금지</h3><p>'+fmt(x.lo,d)+' 이탈 시 관망.</p></div>'
-      +'<div class="lqcard"><div class="lqh">진입·청산 예시 <span class="muted" style="font-weight:400;text-transform:none">(교육용·격리 근사)</span></div>'
-      +'<div class="lqrow"><span class="muted">▲ 롱 관심 진입</span><span class="num">'+fmt(f618,d)+' ~ '+fmt(f382,d)+'</span></div>'
-      +'<div class="lqrow"><span class="muted">└ 청산가 10x / 25x</span><span class="num down">'+fmt(f618*0.9,d)+' / '+fmt(f618*0.96,d)+'</span></div>'
-      +'<div class="lqrow"><span class="muted">▼ 숏 관심 진입</span><span class="num">'+fmt(x.hi,d)+'</span></div>'
-      +'<div class="lqrow"><span class="muted">└ 청산가 10x / 25x</span><span class="num up">'+fmt(x.hi*1.1,d)+' / '+fmt(x.hi*1.04,d)+'</span></div>'
-      +'<div class="muted" style="font-size:11px;margin-top:6px;line-height:1.5">근사식: 롱 청산=진입×(1−1/레버리지), 숏 청산=진입×(1+1/레버리지). 수수료·유지증거금 제외한 대략값입니다.</div></div>'
       +(x.bn?'<div id="flowbox" class="flowcard"><div class="muted" style="font-size:12px">롱·숏 & 매물대 불러오는 중…</div></div>':'')
       +chart;
     if(x.bn&&x.bp==null)fetchDepth(x);
@@ -849,11 +839,6 @@ async function fetchFlow(x){
      +'<div class="lqrow"><span class="muted">손익비 (매수가 기준)</span><span class="num">'+(rr>0?('약 '+rr.toFixed(1)+' : 1'):'-')+'</span></div>'
      +'<div class="muted" style="font-size:11px;margin-top:6px;line-height:1.5">회귀 채널·거래량 기반 계산값입니다. 확정 예측·매수 신호가 아니며, 진입·손절·목표는 본인 판단으로 조정하세요.</div></div>';
     h+='<div id="levblk" class="lqcard" style="margin-top:10px"></div>';
-    h+='<div id="btwrap" class="lqcard" style="margin-top:10px"><button class="tf" onclick="runBacktest()">🔬 이 지표 과거에 맞았나 검증</button><div id="btbox" style="margin-top:8px"></div></div>';
-    h+='<div id="alertbox" class="lqcard" style="margin-top:10px"><div class="lqh">🔔 가격 알림</div>'
-     +'<div class="alrow"><select id="alDir"><option value="above">이상</option><option value="below">이하</option></select><input id="alPrice" type="number" inputmode="decimal" placeholder="목표 가격"><button class="tf" onclick="addAlertFromDetail()">＋ 추가</button></div>'
-     +'<div id="allist" style="margin-top:8px"></div>'
-     +'<div class="muted" style="font-size:11px;margin-top:6px;line-height:1.5">앱(탭)이 켜져 있을 때 도달하면 알림이 뜹니다. 완전히 종료한 상태의 푸시는 서버가 필요해 지원되지 않아요.</div></div>';
     var _bal='', _rk='1'; try{_bal=localStorage.getItem('oxbal')||'';_rk=localStorage.getItem('oxrisk')||'1';}catch(e){}
     var _pd=Math.max(2,decOf(x.px));
     h+='<div id="calcbox" class="lqcard" style="margin-top:10px">'
@@ -866,6 +851,11 @@ async function fetchFlow(x){
      +'</div><div id="calcOut"></div>'
      +'<div class="muted" style="font-size:11px;margin-top:6px;line-height:1.5">레버리지는 위 ⚙️에서 고른 '+curLev+'x 사용. 손절 시 계좌의 리스크%만 잃도록 수량을 역산합니다.</div>'
      +'<button class="tf" style="margin-top:9px" onclick="logCurrentToJournal()">📓 이 설정 일지에 기록</button></div>';
+    h+='<div id="btwrap" class="lqcard" style="margin-top:10px"><button class="tf" onclick="runBacktest()">🔬 이 지표 과거에 맞았나 검증</button><div id="btbox" style="margin-top:8px"></div></div>';
+    h+='<div id="alertbox" class="lqcard" style="margin-top:10px"><div class="lqh">🔔 가격 알림</div>'
+     +'<div class="alrow"><select id="alDir"><option value="above">이상</option><option value="below">이하</option></select><input id="alPrice" type="number" inputmode="decimal" placeholder="목표 가격"><button class="tf" onclick="addAlertFromDetail()">＋ 추가</button></div>'
+     +'<div id="allist" style="margin-top:8px"></div>'
+     +'<div class="muted" style="font-size:11px;margin-top:6px;line-height:1.5">앱(탭)이 켜져 있을 때 도달하면 알림이 뜹니다. 완전히 종료한 상태의 푸시는 서버가 필요해 지원되지 않아요.</div></div>';
     box.innerHTML=h;
     box.querySelectorAll('.gf[data-w]').forEach(function(f){ var w=f.dataset.w; requestAnimationFrame(function(){ f.style.width=w+'%'; }); }); // 캡슐 채움 애니메이션
     updateLiveTaker(true); calcPos(); renderAlertList(x.s);
