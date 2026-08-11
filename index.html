@@ -397,23 +397,25 @@ function renderLevBlock(x){
   var body='';
   if(sg&&sg.entry&&isFinite(sg.entry)){
     var isLong=sg.dir==='long';
-    var liq=isLong? sg.entry*(1-1/curLev) : sg.entry*(1+1/curLev);
+    var mmr=0.005; // 유지증거금 보수적 가정(0.5%·코인/구간별 상이)
+    var liqFrac=Math.max(0.0005, 1/curLev - mmr); // 진입 대비 실제 청산거리(비율)
+    var liq=isLong? sg.entry*(1-liqFrac) : sg.entry*(1+liqFrac);
     var stopDist=Math.abs(sg.entry-sg.stop)/sg.entry*100;
-    var liqDist=100/curLev;
-    var safe=stopDist*1.15<liqDist;
-    var safeLev=Math.max(1,Math.floor(100/(stopDist*1.15))); if(safeLev>mx)safeLev=mx;
+    var liqDist=liqFrac*100;
+    var safe=stopDist*1.2<liqDist;
+    var safeLev=Math.max(1,Math.floor(1/(stopDist/100*1.2 + mmr))); if(safeLev>mx)safeLev=mx;
     body='<div class="lqrow"><span class="muted">청산가 ('+curLev+'x · '+(isLong?'롱':'숏')+' 진입 '+fmt(sg.entry,d)+')</span><span class="num down">'+fmt(liq,d)+'</span></div>'
       +'<div class="lqrow"><span class="muted">손절까지 '+stopDist.toFixed(2)+'% · 청산까지 '+liqDist.toFixed(2)+'%</span><span class="num '+(safe?'up':'down')+'">'+(safe?'✅ 손절이 먼저':'⚠️ 청산이 먼저')+'</span></div>'
       +'<div class="lqrow"><span class="muted">이 타점 안전 최대 레버리지</span><span class="num up">'+safeLev+'x</span></div>';
     body+= safe
-      ? '<div class="muted" style="font-size:11px;margin-top:4px">손절이 청산보다 앞에 있어 계획된 손절이 정상 작동합니다(15% 버퍼 기준).</div>'
+      ? '<div class="muted" style="font-size:11px;margin-top:4px">손절이 청산보다 앞에 있어 계획된 손절이 정상 작동합니다(유지증거금 반영·20% 버퍼 기준).</div>'
       : '<div style="font-size:11px;margin-top:4px;color:var(--down)">⚠️ '+curLev+'x에선 손절 전에 청산됩니다. <b>'+safeLev+'x 이하</b>로 낮추거나 진입을 손절에 더 붙이세요.</div>';
   } else {
     body='<div class="muted" style="font-size:11.5px">신호가 계산되면 타점 기준 청산·안전 레버리지가 표시됩니다.</div>';
   }
   el.innerHTML='<div class="lqh">⚙️ 레버리지 · 타점 안전도 <span class="muted" style="font-weight:400;text-transform:none">(격리 근사)</span></div>'
     +'<div class="tfbar" style="margin:6px 0 8px;display:flex;flex-wrap:wrap;gap:4px">'+btns+'</div>'+body
-    +'<div class="muted" style="font-size:11px;margin-top:6px;line-height:1.5">ONEXCORE 최대: 크립토 75x·주식형 20x (코인별 상이 — 실제 거래창에서 확인). 청산=격리·수수료·유지증거금 제외 근사.</div>';
+    +'<div class="muted" style="font-size:11px;margin-top:6px;line-height:1.5">ONEXCORE 최대: 크립토 75x·주식형 20x (코인별 상이 — 실제 거래창에서 확인). 청산=격리 근사(유지증거금 0.5% 가정 반영·수수료 제외), 정확값은 거래소 청산가로 재확인.</div>';
 }
 function saveChart(){if(!chartObj)return;try{const c=chartObj.takeScreenshot();const a=document.createElement('a');a.href=c.toDataURL('image/png');a.download=(sel||'chart')+'_'+curInterval+'.png';a.click();}catch(e){}}
 function pivots(data,w,type){var r=[];for(var i=w;i<data.length-w;i++){var ok=true;for(var j=i-w;j<=i+w;j++){if(j===i)continue; if(type==='low'&&data[j].low<data[i].low){ok=false;break;} if(type==='high'&&data[j].high>data[i].high){ok=false;break;}} if(ok)r.push(i);} return r;}
@@ -442,7 +444,7 @@ async function drawChart(x){
       cs.createPriceLine({price:hi-f[0]*(hi-lo),color:'#a06bff',lineWidth:1,lineStyle:0,axisLabelVisible:false,title:'fib '+f[1]});
     });
     var poc=volProfile(raw); if(poc)cs.createPriceLine({price:(poc.low+poc.high)/2,color:'#ff9800',lineWidth:2,lineStyle:0,axisLabelVisible:true,title:'매물대'});
-    if(liqOn){var tiers=(x.bn?[25,50,75]:[5,10,20]); if(tiers.indexOf(curLev)<0)tiers.push(curLev); tiers.sort(function(a,b){return a-b;}); tiers.forEach(function(L){var frac=1/L, cur=(L===curLev), a=cur?0.95:0.4, w=cur?2:1; cs.createPriceLine({price:x.px*(1-frac),color:'rgba(246,70,93,'+a+')',lineWidth:w,lineStyle:0,axisLabelVisible:true,title:(cur?'▶':'')+'롱'+L+'x청산'});cs.createPriceLine({price:x.px*(1+frac),color:'rgba(46,189,133,'+a+')',lineWidth:w,lineStyle:0,axisLabelVisible:true,title:(cur?'▶':'')+'숏'+L+'x청산'});});}
+    if(liqOn){var tiers=(x.bn?[25,50,75]:[5,10,20]); if(tiers.indexOf(curLev)<0)tiers.push(curLev); tiers.sort(function(a,b){return a-b;}); tiers.forEach(function(L){var frac=Math.max(0.0005,1/L-0.005), cur=(L===curLev), a=cur?0.95:0.4, w=cur?2:1; cs.createPriceLine({price:x.px*(1-frac),color:'rgba(246,70,93,'+a+')',lineWidth:w,lineStyle:0,axisLabelVisible:true,title:(cur?'▶':'')+'롱'+L+'x청산'});cs.createPriceLine({price:x.px*(1+frac),color:'rgba(46,189,133,'+a+')',lineWidth:w,lineStyle:0,axisLabelVisible:true,title:(cur?'▶':'')+'숏'+L+'x청산'});});}
     (function(){
       const n=data.length; let sx=0,sy=0,sxy=0,sxx=0;
       data.forEach((dd,i)=>{sx+=i;sy+=dd.close;sxy+=i*dd.close;sxx+=i*i;});
