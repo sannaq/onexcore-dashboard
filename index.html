@@ -100,6 +100,19 @@
   .calcrow:last-child{border:none}
   .calcok{font-size:11.5px;margin-top:7px;color:var(--up);line-height:1.5;font-weight:700}
   .calcwarn{font-size:11.5px;margin-top:7px;color:var(--down);line-height:1.5;font-weight:800}
+  .lh2{font-size:14px;font-weight:800;margin:16px 0 8px}
+  .jstats{display:grid;grid-template-columns:repeat(auto-fit,minmax(82px,1fr));gap:8px;margin-bottom:4px}
+  .jstat{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 8px;text-align:center}
+  .jsk{font-size:10px;color:var(--sub);font-weight:700}
+  .jsv{font-size:16px;font-weight:800;margin-top:3px;font-variant-numeric:tabular-nums}
+  .jform select,.jform textarea{padding:9px 10px;border-radius:9px;border:1px solid var(--line);background:var(--panel);color:var(--txt);font-size:15px;font-family:inherit;outline:none;width:100%}
+  .jform textarea{min-height:52px;resize:vertical}
+  .jform select:focus,.jform textarea:focus{border-color:var(--accent)}
+  .jitem{border:1px solid var(--line);border-radius:12px;padding:11px 13px;margin-top:9px;background:var(--panel2)}
+  .jhead{display:flex;justify-content:space-between;align-items:center;font-size:14.5px;font-weight:800}
+  .jlv{font-size:12px;margin-top:4px}
+  .jmemo{font-size:12px;margin-top:6px;line-height:1.5;color:var(--sub)}
+  .jbtns{display:flex;gap:6px;margin-top:8px}
   .livebadge{font-size:9px;font-weight:800;color:#fff;background:var(--down);padding:2px 7px;border-radius:20px;letter-spacing:.5px;animation:pulseLive 1.5s infinite}
   @keyframes pulseLive{50%{opacity:.4}}@media(prefers-reduced-motion:reduce){.livebadge{animation:none}.gbar .gf{transition:none}}
   .rsub{font-size:12.5px;color:var(--sub);margin-top:7px;line-height:1.5}
@@ -194,6 +207,7 @@
 <div class="tabs">
   <button class="tab on" data-tab="coins">종목 분석</button>
   <button class="tab" data-tab="market">미국 증시</button>
+  <button class="tab" data-tab="journal">매매 일지</button>
   <button class="tab" data-tab="learn">기초 자료</button>
 </div>
 
@@ -303,6 +317,28 @@
   </div>
 </div>
 
+<div class="view" id="v-journal">
+  <div class="card">
+    <h2>🧾 매매 일지 · 모의 트레이딩</h2>
+    <p class="lp" style="margin-bottom:12px">돈 안 걸고 매매를 기록·복기하며 실력을 키우는 공간입니다. <b>진입 근거</b>를 꼭 남기고, 청산 후 <b>무엇을 배웠는지</b> 적어보세요. (이 기기에 저장됩니다)</p>
+    <div id="jstats" class="jstats"></div>
+    <div class="lh2">＋ 새 매매 기록</div>
+    <div class="jform">
+      <div class="calcgrid">
+        <label>종목<input id="jSym" placeholder="BTC"></label>
+        <label>방향<select id="jDir"><option value="long">롱 (오른다)</option><option value="short">숏 (내린다)</option></select></label>
+        <label>진입가<input id="jEntry" type="number" inputmode="decimal"></label>
+        <label>손절가<input id="jStop" type="number" inputmode="decimal"></label>
+        <label>목표가<input id="jTarget" type="number" inputmode="decimal"></label>
+        <label>수량 (선택)<input id="jQty" type="number" inputmode="decimal"></label>
+      </div>
+      <textarea id="jMemo" placeholder="진입 근거 — 왜 들어갔나? (복기의 핵심)" style="margin-top:8px"></textarea>
+      <button class="cbtn" style="margin-top:10px;border:none;cursor:pointer;font-family:inherit" onclick="addTrade()">＋ 기록 추가</button>
+    </div>
+    <div class="lh2">기록</div>
+    <div id="jlist"></div>
+  </div>
+</div>
 
 <script>
 const root=document.documentElement,tb=document.getElementById('theme');
@@ -476,6 +512,62 @@ function calcPos(){
   else if(!stopFirst) h+='<div class="calcwarn">⚠️ '+lev+'x에선 손절('+(stopDist*100).toFixed(2)+'%) 전에 청산('+(liqFrac*100).toFixed(2)+'%)됩니다. 레버리지를 낮추세요.</div>';
   else h+='<div class="calcok">✅ 손절 맞으면 딱 '+money(riskAmt)+'('+rk+'%)만 잃습니다. 증거금 '+money(margin)+'로 계획대로 실행 가능.</div>';
   out.innerHTML=h;
+}
+/* 매매 일지 · 모의 트레이딩 */
+function loadTrades(){ try{return JSON.parse(localStorage.getItem('oxtrades')||'[]');}catch(e){return [];} }
+function saveTrades(t){ try{localStorage.setItem('oxtrades',JSON.stringify(t));}catch(e){} }
+function addTrade(){
+  var gv=function(id){return (document.getElementById(id)||{}).value;};
+  var sym=(gv('jSym')||'').trim().toUpperCase(); var en=+gv('jEntry')||0;
+  if(!sym||!(en>0)){ alert('종목과 진입가는 필수입니다.'); return; }
+  var t=loadTrades();
+  t.unshift({id:Date.now(), sym:sym, dir:gv('jDir')||'long', en:en, st:+gv('jStop')||0, tg:+gv('jTarget')||0, qty:+gv('jQty')||0, memo:(gv('jMemo')||'').trim(), status:'open', open:Date.now(), exitP:null, pnl:null, lesson:''});
+  saveTrades(t);
+  ['jSym','jEntry','jStop','jTarget','jQty','jMemo'].forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});
+  renderJournal();
+}
+function closeTrade(id){
+  var t=loadTrades(), it=t.find(function(x){return x.id===id;}); if(!it)return;
+  var ex=prompt('청산가 입력 ('+it.sym+' '+(it.dir==='long'?'롱':'숏')+' · 진입 '+it.en+')'); if(ex==null)return; ex=+ex; if(!(ex>0)){alert('숫자를 입력하세요');return;}
+  it.pnl=it.dir==='long'? (ex-it.en)/it.en*100 : (it.en-ex)/it.en*100;
+  it.status='closed'; it.exitP=ex; it.exit=Date.now();
+  var ls=prompt('이번 매매에서 배운 점 (복기 · 선택)'); it.lesson=(ls||'').trim();
+  saveTrades(t); renderJournal();
+}
+function delTrade(id){ if(!confirm('이 기록을 삭제할까요?'))return; saveTrades(loadTrades().filter(function(x){return x.id!==id;})); renderJournal(); }
+function renderJournal(){
+  var t=loadTrades(), closed=t.filter(function(x){return x.status==='closed';});
+  var wins=closed.filter(function(x){return x.pnl>0;}).length, wr=closed.length?wins/closed.length*100:0;
+  var sumPnl=closed.reduce(function(s,x){return s+(x.pnl||0);},0);
+  var rs=closed.map(function(x){ if(!x.st)return null; var risk=Math.abs(x.en-x.st)/x.en*100; return risk? x.pnl/risk:null; }).filter(function(v){return v!=null;});
+  var sumR=rs.reduce(function(s,v){return s+v;},0);
+  function sc(k,v,c){return '<div class="jstat"><div class="jsk">'+k+'</div><div class="jsv '+(c||'')+'">'+v+'</div></div>';}
+  var st=document.getElementById('jstats');
+  if(st)st.innerHTML= sc('총 기록',t.length+'건')+sc('청산',closed.length+'건')+sc('승률',closed.length?wr.toFixed(0)+'%':'—',closed.length&&wr>=50?'up':(closed.length?'down':''))+sc('누적 손익',(sumPnl>=0?'+':'')+sumPnl.toFixed(1)+'%',closed.length?(sumPnl>=0?'up':'down'):'')+sc('누적 R',(sumR>=0?'+':'')+sumR.toFixed(1)+'R',rs.length?(sumR>=0?'up':'down'):'');
+  var list=document.getElementById('jlist'); if(!list)return;
+  if(!t.length){ list.innerHTML='<div class="muted" style="padding:14px 0;font-size:12.5px">아직 기록이 없어요. 종목 상세의 🧮 계산기에서 <b>📓 일지에 기록</b>을 누르거나 위에서 직접 추가하세요.</div>'; return; }
+  list.innerHTML=t.map(function(x){
+    var dc=x.dir==='long'?'up':'down', dn=x.dir==='long'?'롱':'숏';
+    var head='<div class="jhead"><span><b class="'+dc+'">'+dn+'</b> '+esc(x.sym)+'</span>'+(x.status==='closed'?'<span class="num '+(x.pnl>=0?'up':'down')+'">'+(x.pnl>=0?'+':'')+x.pnl.toFixed(2)+'%</span>':'<span class="pill p-wait">진행중</span>')+'</div>';
+    var lv='진입 '+x.en+(x.st?' · 손절 '+x.st:'')+(x.tg?' · 목표 '+x.tg:'')+(x.exitP?' · 청산 '+x.exitP:'');
+    var memo=x.memo?'<div class="jmemo">📝 '+esc(x.memo)+'</div>':'';
+    var lesson=x.lesson?'<div class="jmemo" style="color:var(--accent)">💡 '+esc(x.lesson)+'</div>':'';
+    var btns=(x.status==='open'?'<button class="tf" onclick="closeTrade('+x.id+')">청산 기록</button>':'')+'<button class="tf" onclick="delTrade('+x.id+')">삭제</button>';
+    return '<div class="jitem">'+head+'<div class="jlv muted">'+lv+'</div>'+memo+lesson+'<div class="jbtns">'+btns+'</div></div>';
+  }).join('');
+}
+function logCurrentToJournal(){
+  var g=function(id){return (document.getElementById(id)||{}).value||'';};
+  var sg=window._sig||{};
+  var set=function(id,v){var e=document.getElementById(id);if(e)e.value=v;};
+  set('jSym',(typeof sel!=='undefined'&&sel)?sel:''); set('jDir',sg.dir||'long');
+  set('jEntry',g('cEntry')); set('jStop',g('cStop')); set('jTarget',sg.target?(+sg.target.toFixed(6)):'');
+  document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('on');});
+  var jt=document.querySelector('.tab[data-tab="journal"]'); if(jt)jt.classList.add('on');
+  document.querySelectorAll('.view').forEach(function(v){v.classList.remove('on');});
+  var jv=document.getElementById('v-journal'); if(jv)jv.classList.add('on');
+  document.body.classList.remove('detail-open');
+  window.scrollTo({top:0,behavior:'smooth'});
 }
 const LIM={'1m':300,'5m':300,'30m':300,'1h':300,'4h':300,'1d':300};
 function ema(v,p){var k=2/(p+1),e=v[0],o=[e],i;for(i=1;i<v.length;i++){e=v[i]*k+e*(1-k);o.push(e);}return o;}
@@ -693,7 +785,8 @@ async function fetchFlow(x){
      +'<label>진입가<input id="cEntry" type="number" inputmode="decimal" value="'+(+lower.toFixed(_pd))+'" oninput="calcPos()"></label>'
      +'<label>손절가<input id="cStop" type="number" inputmode="decimal" value="'+(+stop.toFixed(_pd))+'" oninput="calcPos()"></label>'
      +'</div><div id="calcOut"></div>'
-     +'<div class="muted" style="font-size:11px;margin-top:6px;line-height:1.5">레버리지는 위 ⚙️에서 고른 '+curLev+'x 사용. 손절 시 계좌의 리스크%만 잃도록 수량을 역산합니다.</div></div>';
+     +'<div class="muted" style="font-size:11px;margin-top:6px;line-height:1.5">레버리지는 위 ⚙️에서 고른 '+curLev+'x 사용. 손절 시 계좌의 리스크%만 잃도록 수량을 역산합니다.</div>'
+     +'<button class="tf" style="margin-top:9px" onclick="logCurrentToJournal()">📓 이 설정 일지에 기록</button></div>';
     box.innerHTML=h;
     box.querySelectorAll('.gf[data-w]').forEach(function(f){ var w=f.dataset.w; requestAnimationFrame(function(){ f.style.width=w+'%'; }); }); // 캡슐 채움 애니메이션
     updateLiveTaker(true); calcPos();
@@ -752,6 +845,7 @@ setInterval(flushTicks, 1200);
 // 화면 복귀 시(백그라운드→포그라운드) 즉시 최신화 — 타이머 throttle 회복
 document.addEventListener('visibilitychange',function(){ if(!document.hidden){ tickDirty=true; flushTicks(); if(typeof live==='function')live(); var xx=(typeof sel!=='undefined')?sel:null; if(xx&&typeof showDetail==='function')showDetail(xx); } });
 startTickerWS();
+if(typeof renderJournal==='function')renderJournal();
 live();setInterval(live,45000);setInterval(stamp,1000);
 function relTime(d){var s=(Date.now()-d)/1000; if(s<60)return '방금 전'; if(s<3600)return Math.floor(s/60)+'분 전'; if(s<86400)return Math.floor(s/3600)+'시간 전'; return Math.floor(s/86400)+'일 전';}
 function sentiment(t){var neg=['하락','급락','규제','금지','관세','해킹','청산','폭락','우려','경고','소송','제재','유출','하향','파산','연기','거부','약세','손실','벌금','압류','위기','충격','매도','부진','논란'];var pos=['상승','급등','호재','승인','채택','도입','유입','신고가','돌파','완화','호조','성장','상향','상장','파트너','투자','반등','회복','매수','기대','최고','호실적','흥행'];for(var i=0;i<neg.length;i++)if(t.indexOf(neg[i])>-1)return 'neg';for(var j=0;j<pos.length;j++)if(t.indexOf(pos[j])>-1)return 'pos';return 'neu';}
