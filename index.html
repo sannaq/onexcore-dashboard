@@ -15,7 +15,7 @@
   :root[data-theme="light"]{--bg:#f5f6f8;--panel:#ffffff;--panel2:#eef1f5;--line:#e3e6ec;--txt:#131722;--sub:#6a7180;--accent:#2962ff;--up:#0e9f6e;--down:#e5384d;--wait:#c07a12;--upbg:rgba(14,159,110,.1);--downbg:rgba(229,56,77,.1);}
   :root[data-theme="dark"]{--bg:#0d0f14;--panel:#161922;--panel2:#1e222c;--line:#262a35;--txt:#eaecf2;--sub:#868c9b;--accent:#4a90ff;--up:#2ebd85;--down:#f6465d;--wait:#e0a83e;--upbg:rgba(46,189,133,.13);--downbg:rgba(246,70,93,.13);}
   *{box-sizing:border-box}
-  body{margin:0;background:radial-gradient(1200px 640px at 50% -8%, color-mix(in srgb,var(--accent) 7%,var(--bg)), var(--bg)) fixed;color:var(--txt);font-family:'Pretendard','Segoe UI','Malgun Gothic',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;letter-spacing:-.1px;padding:16px 16px 44px;max-width:1080px;margin:0 auto;min-height:100vh}
+  body{margin:0;background:radial-gradient(1200px 640px at 50% -8%, color-mix(in srgb,var(--accent) 7%,var(--bg)), var(--bg)) fixed;color:var(--txt);font-family:'Pretendard','Segoe UI','Malgun Gothic',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;letter-spacing:-.1px;padding:16px 16px 44px;max-width:1280px;margin:0 auto;min-height:100vh}
   ::selection{background:color-mix(in srgb,var(--accent) 32%,transparent)}
   .tab,.chip,.li,.tbtn,.loginbtn,.tf,.litem,.idx,.nitem{transition:background .16s,border-color .16s,color .16s,box-shadow .16s}
   ::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px}::-webkit-scrollbar-thumb:hover{background:var(--sub)}
@@ -70,7 +70,8 @@
   ul.chk{margin:0;padding-left:18px}ul.chk li{font-size:13px;line-height:1.7;margin-bottom:3px}ul.chk b{color:var(--txt)}
   .disc{background:var(--downbg);border:1px solid color-mix(in srgb,var(--down) 30%,transparent);border-radius:12px;padding:12px 14px;font-size:12px;color:var(--down);line-height:1.6}
   .foot{color:var(--sub);font-size:11.5px;margin-top:8px;text-align:center}
-  .grid{display:grid;grid-template-columns:1fr 1.1fr;gap:14px}
+  .grid{display:grid;grid-template-columns:380px 1fr;gap:16px;align-items:start}
+  @media(min-width:781px){#tvchart{height:400px}.list{max-height:600px}}
   #tvchart{width:100%;height:300px;margin:8px 0 4px;border:1px solid var(--line);border-radius:10px;overflow:hidden;position:relative}
   .chartlegend{display:flex;gap:12px;flex-wrap:wrap;font-size:11.5px;color:var(--sub);margin:12px 0 2px;align-items:center}
   .lgd{display:inline-flex;align-items:center;gap:5px}
@@ -336,6 +337,7 @@ function render(f){
 }
 function showDetail(s){
   const x=C.find(v=>v.s===s);if(!x){det.innerHTML='';return;}const t=TAG[x._st];const d=x.dec||2;
+  if(chartTimer){clearInterval(chartTimer);chartTimer=null;} if(chartWS){try{chartWS.close()}catch(e){} chartWS=null;}
   const chart='<a class="cbtn" href="https://www.onexcore.com/trading/'+x.s.toLowerCase()+'usdt" target="_blank" rel="noopener">📈 ONEXCORE 차트 열기</a>';
   let h='<button class="backbtn" onclick="document.body.classList.remove(\'detail-open\');window.scrollTo({top:0})">◀ 목록으로</button><h2>상세 — '+x.s+(x.bn?' <span class="live-b">●LIVE</span>':' <span class="muted" style="font-weight:500;text-transform:none">(스냅샷)</span>')+' <span class="muted" style="text-transform:none;font-weight:500">'+esc(x.k)+'</span> <span id="detailStar" class="star'+(favs.has(x.s)?' on':'')+'" title="즐겨찾기" onclick="toggleFav(\''+x.s+'\')">★</span></h2>';
   h+='<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span class="price num">'+x._disp+'</span>'+chgHtml(x.c)+'<span class="pill '+t[1]+'">'+t[0]+'</span></div>';
@@ -376,7 +378,7 @@ function showDetail(s){
   if(x.bn)fetchFlow(x);
 }
 const FAPI='https://fapi.binance.com/fapi/v1/';
-let chartObj=null, curInterval='15m', chartTimer=null, chartOn=true;
+let chartObj=null, curInterval='15m', chartTimer=null, chartOn=true, chartWS=null;
 try{chartOn=localStorage.getItem('oxchart')!=='0';}catch(e){}
 const LIM={'1m':180,'5m':180,'30m':160,'1h':168,'4h':180,'1d':150};
 function toBars(raw){return raw.map(k=>({time:Math.floor(k[0]/1000),open:+k[1],high:+k[2],low:+k[3],close:+k[4]}));}
@@ -395,6 +397,7 @@ async function drawChart(x){
   chartObj=chart;
   const cs=chart.addCandlestickSeries({upColor:'#2ebd85',downColor:'#f6465d',borderVisible:false,wickUpColor:'#2ebd85',wickDownColor:'#f6465d'});
   if(chartTimer){clearInterval(chartTimer);chartTimer=null;}
+  if(chartWS){try{chartWS.close()}catch(e){} chartWS=null;}
   const url=FAPI+'klines?symbol='+x.bn+'&interval='+curInterval+'&limit='+(LIM[curInterval]||160);
   try{
     const raw=await fetch(url).then(r=>r.json());
@@ -430,7 +433,10 @@ async function drawChart(x){
       s.setData(pts);
     })();
     chart.timeScale().fitContent();
-    chartTimer=setInterval(function(){ fetch(url).then(r=>r.json()).then(function(rw){ if(Array.isArray(rw)) cs.setData(toBars(rw)); }).catch(function(){}); }, 30000);
+    chartTimer=setInterval(function(){ fetch(url).then(r=>r.json()).then(function(rw){ if(Array.isArray(rw)) cs.setData(toBars(rw)); }).catch(function(){}); }, 90000);
+    try{ chartWS=new WebSocket('wss://fstream.binance.com/ws/'+x.bn.toLowerCase()+'@kline_'+curInterval);
+      chartWS.onmessage=function(ev){ try{var m=JSON.parse(ev.data); if(m.k) cs.update({time:Math.floor(m.k.t/1000),open:+m.k.o,high:+m.k.h,low:+m.k.l,close:+m.k.c}); }catch(e){} };
+    }catch(e){}
   }catch(e){el.innerHTML='<div class="muted" style="padding:24px;text-align:center;font-size:12px">차트 데이터를 불러오지 못했어요</div>';}
 }
 async function fetchDepth(x){
@@ -516,6 +522,7 @@ async function live(){
 q.oninput=()=>render(q.value);
 [...document.querySelectorAll('.chip')].forEach(c=>{const go=()=>{q.value=c.dataset.s;render(q.value);sel=c.dataset.s;showDetail(sel);if(window.innerWidth<=780){document.body.classList.add('detail-open');window.scrollTo({top:0,behavior:'smooth'});}};c.onclick=go;c.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}};});
 render('');showDetail('SOL');stamp();
+function setDevice(){var m=window.innerWidth<=780;document.body.classList.toggle('is-mobile',m);document.body.classList.toggle('is-pc',!m);} setDevice(); window.addEventListener('resize',setDevice);
 live();setInterval(live,45000);setInterval(stamp,1000);
 function relTime(d){var s=(Date.now()-d)/1000; if(s<60)return '방금 전'; if(s<3600)return Math.floor(s/60)+'분 전'; if(s<86400)return Math.floor(s/3600)+'시간 전'; return Math.floor(s/86400)+'일 전';}
 function sentiment(t){var neg=['하락','급락','규제','금지','관세','해킹','청산','폭락','우려','경고','소송','제재','유출','하향','파산','연기','거부','약세','손실','벌금','압류','위기','충격','매도','부진','논란'];var pos=['상승','급등','호재','승인','채택','도입','유입','신고가','돌파','완화','호조','성장','상향','상장','파트너','투자','반등','회복','매수','기대','최고','호실적','흥행'];for(var i=0;i<neg.length;i++)if(t.indexOf(neg[i])>-1)return 'neg';for(var j=0;j<pos.length;j++)if(t.indexOf(pos[j])>-1)return 'pos';return 'neu';}
