@@ -75,7 +75,9 @@
   @media(min-width:781px){#tvchart{height:400px}.list{max-height:600px}}
   #tvchart{width:100%;height:300px;margin:8px 0 4px;border:1px solid var(--line);border-radius:10px;overflow:hidden;position:relative}
   .chartlegend{display:flex;gap:12px;flex-wrap:wrap;font-size:11.5px;color:var(--sub);margin:12px 0 2px;align-items:center}
-  .lgd{display:inline-flex;align-items:center;gap:5px}
+  .lgd{display:inline-flex;align-items:center;gap:5px;cursor:pointer;padding:3px 7px;border-radius:14px;border:1px solid transparent;user-select:none}
+  .lgd:hover{border-color:var(--line)}
+  .lgd.off{opacity:.38;text-decoration:line-through}
   .lgd i{width:15px;height:0;border-top:2px solid;display:inline-block}
   .tfrow{display:flex;gap:6px;margin:12px 0 0;flex-wrap:wrap}
   .tf{padding:5px 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--sub);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
@@ -431,7 +433,15 @@ function showDetail(s){
     h+='<div class="tfrow"><button class="tf'+(chartOn?' on':'')+'" onclick="toggleChart()">'+(chartOn?'📉 차트끄기':'📈 차트보기')+'</button>';
     if(chartOn){h+='<button class="tf'+(autoTf?' on':'')+'" onclick="toggleAutoTf()" title="줌 레벨에 맞춰 시간봉 자동 전환">🅰 자동</button>'+[['1m','1분'],['5m','5분'],['30m','30분'],['1h','1시간'],['4h','4시간'],['1d','1일']].map(function(a){return '<button class="tf'+(curInterval===a[0]?' on':'')+'" onclick="setTf(\''+a[0]+'\')">'+a[1]+'</button>';}).join('')+'<button class="tf" onclick="refreshChart()">🔄 새로고침</button>'+'<button class="tf" onclick="saveChart()">📷 저장</button>'+'<button class="tf'+(liqOn?' on':'')+'" onclick="toggleLiq()">🔥 청산맵</button>';}
     h+='</div>';
-    if(chartOn){h+='<div class="chartlegend"><span class="lgd"><i style="border-color:#f6465d"></i>저항</span><span class="lgd"><i style="border-color:#2ebd85"></i>지지</span><span class="lgd"><i style="border-color:#4a9eff"></i>채널</span><span class="lgd"><i style="border-color:#e0a83e"></i>추세선</span><span class="lgd"><i style="border-color:#a06bff"></i>피보</span><span class="lgd"><i style="border-color:#ff9800"></i>매물대</span><span class="lgd"><i style="border-color:#f0b90b"></i>EMA20</span><span class="lgd"><i style="border-color:#3b82f6"></i>50</span><span class="lgd"><i style="border-color:#a855f7"></i>200</span>'+(liqOn?'<span class="lgd"><i style="border-color:#f23645"></i>롱청산 <i style="border-color:#26a69a;margin-left:4px"></i>숏청산</span>':'')+'<span style="margin-left:auto">스크롤·핀치 확대/축소</span></div><div id="tvchart"></div>';}
+    if(chartOn){h+='<div class="chartlegend">'
+      +'<span class="lgd'+(lineOn.sr?'':' off')+'" data-k="sr" onclick="toggleLine(\'sr\')"><i style="border-color:#2ebd85"></i>지지/저항</span>'
+      +'<span class="lgd'+(lineOn.ch?'':' off')+'" data-k="ch" onclick="toggleLine(\'ch\')"><i style="border-color:#4a9eff"></i>채널</span>'
+      +'<span class="lgd'+(lineOn.tr?'':' off')+'" data-k="tr" onclick="toggleLine(\'tr\')"><i style="border-color:#e0a83e"></i>추세선</span>'
+      +'<span class="lgd'+(lineOn.fib?'':' off')+'" data-k="fib" onclick="toggleLine(\'fib\')"><i style="border-color:#a06bff"></i>피보</span>'
+      +'<span class="lgd'+(lineOn.poc?'':' off')+'" data-k="poc" onclick="toggleLine(\'poc\')"><i style="border-color:#ff9800"></i>매물대</span>'
+      +'<span class="lgd'+(lineOn.ema?'':' off')+'" data-k="ema" onclick="toggleLine(\'ema\')"><i style="border-color:#f0b90b"></i>EMA</span>'
+      +(liqOn?'<span class="lgd"><i style="border-color:#f23645"></i>청산맵</span>':'')
+      +'<span style="margin-left:auto;opacity:.7;font-size:10.5px">탭해서 켜고 끄기 · 핀치 확대</span></div><div id="tvchart"></div>';}
   }
   if(x.hi!=null&&x.lo!=null){
     const span=x.hi-x.lo,f382=x.hi-0.382*span,f618=x.hi-0.618*span;
@@ -638,6 +648,10 @@ function setTf(iv){autoTf=false; try{localStorage.setItem('oxauto','0');}catch(e
 function toggleChart(){chartOn=!chartOn;try{localStorage.setItem('oxchart',chartOn?'1':'0');}catch(e){} if(sel)showDetail(sel);}
 var liqOn=false; try{liqOn=localStorage.getItem('oxliq')==='1';}catch(e){}
 function toggleLiq(){liqOn=!liqOn;try{localStorage.setItem('oxliq',liqOn?'1':'0');}catch(e){} if(sel)showDetail(sel);}
+/* 차트 선 종류 on/off */
+var lineOn={sr:true,ch:true,tr:true,fib:true,poc:true,ema:true};
+try{var _lo=JSON.parse(localStorage.getItem('oxlines')||'null'); if(_lo)Object.assign(lineOn,_lo);}catch(e){}
+function toggleLine(k){ lineOn[k]=!lineOn[k]; try{localStorage.setItem('oxlines',JSON.stringify(lineOn));}catch(e){} var x=C.find(function(c){return c.s===sel;}); if(x&&chartOn){ drawChart(x); var lg=document.querySelector('.lgd[data-k="'+k+'"]'); if(lg)lg.classList.toggle('off',!lineOn[k]); } }
 /* 레버리지 · 타점 안전도 */
 var curLev=25; try{var _sl=+localStorage.getItem('oxlev'); if(_sl)curLev=_sl;}catch(e){}
 function maxLevOf(x){ return x&&x.bn ? 75 : 20; }
@@ -691,16 +705,16 @@ async function drawChart(x){
     cs.setData(data);
     var clz=data.map(function(d){return d.close;});
     var emaRefs=[];
-    [[20,'#f0b90b'],[50,'#3b82f6'],[200,'#a855f7']].forEach(function(E){ if(clz.length>=E[0]){ var ev=ema(clz,E[0]); var es=chart.addLineSeries({color:E[1],lineWidth:1,lastValueVisible:false,priceLineVisible:false,crosshairMarkerVisible:false}); es.setData(data.map(function(d,i){return {time:d.time,value:ev[i]};})); emaRefs.push({p:E[0],series:es}); } });
-    cs.createPriceLine({price:x.hi,color:'#f6465d',lineWidth:1,lineStyle:0,axisLabelVisible:true,title:'저항'});
-    cs.createPriceLine({price:x.lo,color:'#2ebd85',lineWidth:1,lineStyle:0,axisLabelVisible:true,title:'지지'});
+    if(lineOn.ema)[[20,'#f0b90b'],[50,'#3b82f6'],[200,'#a855f7']].forEach(function(E){ if(clz.length>=E[0]){ var ev=ema(clz,E[0]); var es=chart.addLineSeries({color:E[1],lineWidth:1,lastValueVisible:false,priceLineVisible:false,crosshairMarkerVisible:false}); es.setData(data.map(function(d,i){return {time:d.time,value:ev[i]};})); emaRefs.push({p:E[0],series:es}); } });
+    if(lineOn.sr){cs.createPriceLine({price:x.hi,color:'#f6465d',lineWidth:1,lineStyle:0,axisLabelVisible:true,title:'저항'});
+    cs.createPriceLine({price:x.lo,color:'#2ebd85',lineWidth:1,lineStyle:0,axisLabelVisible:true,title:'지지'});}
     var hi=-Infinity,lo=Infinity; data.forEach(function(d){if(d.high>hi)hi=d.high; if(d.low<lo)lo=d.low;});
-    [[0.382,'0.382'],[0.5,'0.5'],[0.618,'0.618']].forEach(function(f){
+    if(lineOn.fib)[[0.382,'0.382'],[0.5,'0.5'],[0.618,'0.618']].forEach(function(f){
       cs.createPriceLine({price:hi-f[0]*(hi-lo),color:'#a06bff',lineWidth:1,lineStyle:0,axisLabelVisible:false,title:'fib '+f[1]});
     });
-    var poc=volProfile(raw); if(poc)cs.createPriceLine({price:(poc.low+poc.high)/2,color:'#ff9800',lineWidth:2,lineStyle:0,axisLabelVisible:true,title:'매물대'});
+    var poc=volProfile(raw); if(poc&&lineOn.poc)cs.createPriceLine({price:(poc.low+poc.high)/2,color:'#ff9800',lineWidth:2,lineStyle:0,axisLabelVisible:true,title:'매물대'});
     if(liqOn){var tiers=(x.bn?[25,50,75]:[5,10,20]); if(tiers.indexOf(curLev)<0)tiers.push(curLev); tiers.sort(function(a,b){return a-b;}); tiers.forEach(function(L){var frac=Math.max(0.0005,1/L-0.005), cur=(L===curLev), a=cur?0.95:0.4, w=cur?2:1; cs.createPriceLine({price:x.px*(1-frac),color:'rgba(246,70,93,'+a+')',lineWidth:w,lineStyle:0,axisLabelVisible:true,title:(cur?'▶':'')+'롱'+L+'x청산'});cs.createPriceLine({price:x.px*(1+frac),color:'rgba(46,189,133,'+a+')',lineWidth:w,lineStyle:0,axisLabelVisible:true,title:(cur?'▶':'')+'숏'+L+'x청산'});});}
-    (function(){
+    if(lineOn.ch)(function(){
       const n=data.length; let sx=0,sy=0,sxy=0,sxx=0;
       data.forEach((dd,i)=>{sx+=i;sy+=dd.close;sxy+=i*dd.close;sxx+=i*i;});
       const den=(n*sxx-sx*sx), sl=den?(n*sxy-sx*sy)/den:0, itc=(sy-sl*sx)/n;
@@ -710,7 +724,7 @@ async function drawChart(x){
       mk(above,1,0); mk(below,1,0);
     })();
     // 골드 스윙 추세선 (극점 앵커 → 최근 스윙 → 오른쪽 끝까지 연장)
-    (function(){
+    if(lineOn.tr)(function(){
       var up=data[data.length-1].close>=data[0].close;
       var pv=pivots(data,4,up?'low':'high'); if(pv.length<2){pv=pivots(data,3,up?'low':'high');} if(pv.length<2)return;
       // 앵커=극점(상승=최저 저점, 하락=최고 고점)
