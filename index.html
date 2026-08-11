@@ -384,6 +384,37 @@ function setTf(iv){curInterval=iv; if(sel) showDetail(sel);}
 function toggleChart(){chartOn=!chartOn;try{localStorage.setItem('oxchart',chartOn?'1':'0');}catch(e){} if(sel)showDetail(sel);}
 var liqOn=false; try{liqOn=localStorage.getItem('oxliq')==='1';}catch(e){}
 function toggleLiq(){liqOn=!liqOn;try{localStorage.setItem('oxliq',liqOn?'1':'0');}catch(e){} if(sel)showDetail(sel);}
+/* 레버리지 · 타점 안전도 */
+var curLev=25; try{var _sl=+localStorage.getItem('oxlev'); if(_sl)curLev=_sl;}catch(e){}
+function maxLevOf(x){ return x&&x.bn ? 75 : 20; }
+function levStepsOf(x){ return x&&x.bn ? [5,10,20,25,50,75] : [3,5,10,20]; }
+function setLev(n){ curLev=n; try{localStorage.setItem('oxlev',n);}catch(e){} var x=C.find(function(c){return c.s===sel;}); if(x){ renderLevBlock(x); if(liqOn&&chartOn) drawChart(x); } }
+function renderLevBlock(x){
+  var el=document.getElementById('levblk'); if(!el)return;
+  var d=(x.dec!=null?x.dec:decOf(x.px)), sg=window._sig, mx=maxLevOf(x);
+  var steps=levStepsOf(x).filter(function(v){return v<=Math.max(mx,curLev);});
+  var btns=steps.map(function(v){return '<button class="tf'+(v===curLev?' on':'')+'" onclick="setLev('+v+')">'+v+'x</button>';}).join('');
+  var body='';
+  if(sg&&sg.entry&&isFinite(sg.entry)){
+    var isLong=sg.dir==='long';
+    var liq=isLong? sg.entry*(1-1/curLev) : sg.entry*(1+1/curLev);
+    var stopDist=Math.abs(sg.entry-sg.stop)/sg.entry*100;
+    var liqDist=100/curLev;
+    var safe=stopDist*1.15<liqDist;
+    var safeLev=Math.max(1,Math.floor(100/(stopDist*1.15))); if(safeLev>mx)safeLev=mx;
+    body='<div class="lqrow"><span class="muted">청산가 ('+curLev+'x · '+(isLong?'롱':'숏')+' 진입 '+fmt(sg.entry,d)+')</span><span class="num down">'+fmt(liq,d)+'</span></div>'
+      +'<div class="lqrow"><span class="muted">손절까지 '+stopDist.toFixed(2)+'% · 청산까지 '+liqDist.toFixed(2)+'%</span><span class="num '+(safe?'up':'down')+'">'+(safe?'✅ 손절이 먼저':'⚠️ 청산이 먼저')+'</span></div>'
+      +'<div class="lqrow"><span class="muted">이 타점 안전 최대 레버리지</span><span class="num up">'+safeLev+'x</span></div>';
+    body+= safe
+      ? '<div class="muted" style="font-size:11px;margin-top:4px">손절이 청산보다 앞에 있어 계획된 손절이 정상 작동합니다(15% 버퍼 기준).</div>'
+      : '<div style="font-size:11px;margin-top:4px;color:var(--down)">⚠️ '+curLev+'x에선 손절 전에 청산됩니다. <b>'+safeLev+'x 이하</b>로 낮추거나 진입을 손절에 더 붙이세요.</div>';
+  } else {
+    body='<div class="muted" style="font-size:11.5px">신호가 계산되면 타점 기준 청산·안전 레버리지가 표시됩니다.</div>';
+  }
+  el.innerHTML='<div class="lqh">⚙️ 레버리지 · 타점 안전도 <span class="muted" style="font-weight:400;text-transform:none">(격리 근사)</span></div>'
+    +'<div class="tfbar" style="margin:6px 0 8px;display:flex;flex-wrap:wrap;gap:4px">'+btns+'</div>'+body
+    +'<div class="muted" style="font-size:11px;margin-top:6px;line-height:1.5">ONEXCORE 최대: 크립토 75x·주식형 20x (코인별 상이 — 실제 거래창에서 확인). 청산=격리·수수료·유지증거금 제외 근사.</div>';
+}
 function saveChart(){if(!chartObj)return;try{const c=chartObj.takeScreenshot();const a=document.createElement('a');a.href=c.toDataURL('image/png');a.download=(sel||'chart')+'_'+curInterval+'.png';a.click();}catch(e){}}
 function pivots(data,w,type){var r=[];for(var i=w;i<data.length-w;i++){var ok=true;for(var j=i-w;j<=i+w;j++){if(j===i)continue; if(type==='low'&&data[j].low<data[i].low){ok=false;break;} if(type==='high'&&data[j].high>data[i].high){ok=false;break;}} if(ok)r.push(i);} return r;}
 async function drawChart(x){
@@ -411,7 +442,7 @@ async function drawChart(x){
       cs.createPriceLine({price:hi-f[0]*(hi-lo),color:'#a06bff',lineWidth:1,lineStyle:0,axisLabelVisible:false,title:'fib '+f[1]});
     });
     var poc=volProfile(raw); if(poc)cs.createPriceLine({price:(poc.low+poc.high)/2,color:'#ff9800',lineWidth:2,lineStyle:0,axisLabelVisible:true,title:'매물대'});
-    if(liqOn){[[25,0.04],[50,0.02],[100,0.01]].forEach(function(L){var a=(0.45+(L[0]/100)*0.5).toFixed(2);cs.createPriceLine({price:x.px*(1-L[1]),color:'rgba(246,70,93,'+a+')',lineWidth:2,lineStyle:0,axisLabelVisible:true,title:'롱'+L[0]+'x청산'});cs.createPriceLine({price:x.px*(1+L[1]),color:'rgba(46,189,133,'+a+')',lineWidth:2,lineStyle:0,axisLabelVisible:true,title:'숏'+L[0]+'x청산'});});}
+    if(liqOn){var tiers=(x.bn?[25,50,75]:[5,10,20]); if(tiers.indexOf(curLev)<0)tiers.push(curLev); tiers.sort(function(a,b){return a-b;}); tiers.forEach(function(L){var frac=1/L, cur=(L===curLev), a=cur?0.95:0.4, w=cur?2:1; cs.createPriceLine({price:x.px*(1-frac),color:'rgba(246,70,93,'+a+')',lineWidth:w,lineStyle:0,axisLabelVisible:true,title:(cur?'▶':'')+'롱'+L+'x청산'});cs.createPriceLine({price:x.px*(1+frac),color:'rgba(46,189,133,'+a+')',lineWidth:w,lineStyle:0,axisLabelVisible:true,title:(cur?'▶':'')+'숏'+L+'x청산'});});}
     (function(){
       const n=data.length; let sx=0,sy=0,sxy=0,sxx=0;
       data.forEach((dd,i)=>{sx+=i;sy+=dd.close;sxy+=i*dd.close;sxx+=i*i;});
@@ -421,11 +452,17 @@ async function drawChart(x){
       const mk=(off,w,style)=>{const s=chart.addLineSeries({color:'#4a9eff',lineWidth:w,lineStyle:style,lastValueVisible:false,priceLineVisible:false,crosshairMarkerVisible:false});s.setData(data.map((dd,i)=>({time:dd.time,value:itc+sl*i+off})));};
       mk(above,1,0); mk(below,1,0);
     })();
-    // 골드 스윙 추세선 (저점/고점 연결)
+    // 골드 스윙 추세선 (극점 앵커 → 최근 스윙 → 오른쪽 끝까지 연장)
     (function(){
       var up=data[data.length-1].close>=data[0].close;
-      var pv=pivots(data,3,up?'low':'high'); if(pv.length<2)return;
-      var a=pv[pv.length-2], b=pv[pv.length-1];
+      var pv=pivots(data,4,up?'low':'high'); if(pv.length<2){pv=pivots(data,3,up?'low':'high');} if(pv.length<2)return;
+      // 앵커=극점(상승=최저 저점, 하락=최고 고점)
+      var anchor=pv[0];
+      for(var k=0;k<pv.length;k++){ if(up){ if(data[pv[k]].low<data[anchor].low)anchor=pv[k]; } else { if(data[pv[k]].high>data[anchor].high)anchor=pv[k]; } }
+      // 앵커 이후 가장 최근 스윙
+      var later=null; for(var m=pv.length-1;m>=0;m--){ if(pv[m]>anchor){later=pv[m];break;} }
+      if(later==null){ var idx=pv.indexOf(anchor); if(idx>0){later=anchor; anchor=pv[idx-1];} else return; }
+      var a=anchor, b=later;
       var pa=up?data[a].low:data[a].high, pb=up?data[b].low:data[b].high;
       var slope=(pb-pa)/(b-a);
       var s=chart.addLineSeries({color:'#e0a83e',lineWidth:2,lastValueVisible:false,priceLineVisible:false,crosshairMarkerVisible:false});
@@ -435,11 +472,13 @@ async function drawChart(x){
     chart.timeScale().fitContent();
     var lastBar=Object.assign({},data[data.length-1]);
     var iv=IVMS[curInterval]||900000;
-    chartTimer=setInterval(function(){ fetch(url).then(r=>r.json()).then(function(rw){ if(Array.isArray(rw)){var bars=toBars(rw); cs.setData(bars); lastBar=Object.assign({},bars[bars.length-1]);} }).catch(function(){}); }, 15000);
-    function openWS(){ try{ chartWS=new WebSocket('wss://data-stream.binance.vision/ws/'+x.bn.toLowerCase()+'@aggTrade');
-      chartWS.onmessage=function(ev){ try{var m=JSON.parse(ev.data); var p=+m.p; if(!p)return; var bt=Math.floor((m.T||Date.now())/iv)*iv/1000; if(!lastBar||bt>lastBar.time){lastBar={time:bt,open:p,high:p,low:p,close:p};} else {if(p>lastBar.high)lastBar.high=p; if(p<lastBar.low)lastBar.low=p; lastBar.close=p;} cs.update(lastBar); var dp=det.querySelector('.price'); if(dp&&sel===x.s)dp.textContent=fmt(p,x.dec||2); }catch(e){} };
-      chartWS.onclose=function(){ if(sel===x.s && chartObj){ setTimeout(function(){ if(sel===x.s && chartObj) openWS(); },2000); } };
-    }catch(e){} }
+    chartTimer=setInterval(function(){ fetch(url).then(r=>r.json()).then(function(rw){ if(Array.isArray(rw)){var bars=toBars(rw); cs.setData(bars); lastBar=Object.assign({},bars[bars.length-1]);} }).catch(function(){}); }, 5000);
+    var wsMsg=function(ev){ try{var m=JSON.parse(ev.data); var p=+m.p; if(!p)return; var bt=Math.floor((m.T||Date.now())/iv)*iv/1000; if(!lastBar||bt>lastBar.time){lastBar={time:bt,open:p,high:p,low:p,close:p};} else {if(p>lastBar.high)lastBar.high=p; if(p<lastBar.low)lastBar.low=p; lastBar.close=p;} cs.update(lastBar); var dp=det.querySelector('.price'); if(dp&&sel===x.s)dp.textContent=fmt(p,x.dec||2); }catch(e){} };
+    function openWS(){ var sym=x.bn.toLowerCase(), got=false, fellBack=false;
+      function conn(u,isFb){ try{ chartWS=new WebSocket(u); chartWS.onmessage=function(ev){got=true; wsMsg(ev);}; chartWS.onclose=function(){ if(sel===x.s&&chartObj){ setTimeout(function(){ if(sel===x.s&&chartObj) openWS(); },2000);} }; }catch(e){ if(!isFb&&!fellBack){fellBack=true; conn('wss://data-stream.binance.vision/ws/'+sym+'@aggTrade',true);} } }
+      conn('wss://fstream.binance.com/ws/'+sym+'@aggTrade',false); // 선물 우선(ONEXCORE·바이낸스 일치)
+      setTimeout(function(){ if(!got && !fellBack && chartWS && sel===x.s){ fellBack=true; try{chartWS.onclose=null;chartWS.close();}catch(e){} conn('wss://data-stream.binance.vision/ws/'+sym+'@aggTrade',true); } },4000); // 막히면 현물 폴백
+    }
     openWS();
   }catch(e){el.innerHTML='<div class="muted" style="padding:24px;text-align:center;font-size:12px">차트 데이터를 불러오지 못했어요</div>';}
 }
@@ -507,12 +546,14 @@ async function fetchFlow(x){
      +'<div class="lqrow"><span class="muted">🎯 2차 매도 목표 (확장)</span><span class="num">'+fmt(ext,d)+'</span></div>'
      +'<div class="lqrow"><span class="muted">손익비 (매수가 기준)</span><span class="num">'+(rr>0?('약 '+rr.toFixed(1)+' : 1'):'-')+'</span></div>'
      +'<div class="muted" style="font-size:11px;margin-top:6px;line-height:1.5">회귀 채널·거래량 기반 계산값입니다. 확정 예측·매수 신호가 아니며, 진입·손절·목표는 본인 판단으로 조정하세요.</div></div>';
+    h+='<div id="levblk" class="lqcard" style="margin-top:10px"></div>';
     box.innerHTML=h;
     var tsEl=document.getElementById('topsig');
     if(tsEl){
       var dir=(sl>=0)?'long':'short', e,tg,sp,srr;
       if(dir==='long'){e=lower;tg=upper;sp=stop;srr=(tg-e)/((e-sp)||1);}
       else{e=upper;tg=lower;sp=upper+chH*0.15;srr=(e-tg)/((sp-e)||1);}
+      window._sig={dir:dir,entry:e,stop:sp,target:tg,px:x.px}; renderLevBlock(x);
       tsEl.className='sigcard '+(dir==='long'?'sig-long':'sig-short');
       tsEl.style.display='block';
       tsEl.innerHTML='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span class="sigdir '+(dir==='long'?'up':'down')+'">'+(dir==='long'?'▲ 롱 LONG':'▼ 숏 SHORT')+'</span><span class="muted" style="font-size:11.5px">차트 추세 기반 · 교육용</span></div>'
@@ -545,11 +586,11 @@ var tickerWS=null, tickDirty=false;
 function startTickerWS(){
   var syms=C.filter(function(x){return x.bn;}).map(function(x){return x.bn.toLowerCase()+'@miniTicker';});
   if(!syms.length)return;
-  try{
-    tickerWS=new WebSocket('wss://data-stream.binance.vision/stream?streams='+syms.join('/'));
-    tickerWS.onmessage=function(ev){ try{var j=JSON.parse(ev.data), d=j.data; if(!d||!d.s)return; var x=C.find(function(c){return c.bn===d.s;}); if(!x)return; x.px=+d.c; x.hi=+d.h; x.lo=+d.l; if(+d.o)x.c=(+d.c-+d.o)/+d.o*100; recalc(x); tickDirty=true; }catch(e){} };
-    tickerWS.onclose=function(){ setTimeout(startTickerWS,3000); };
-  }catch(e){}
+  var got=false, fellBack=false;
+  var onmsg=function(ev){ try{var j=JSON.parse(ev.data), d=j.data; if(!d||!d.s)return; got=true; var x=C.find(function(c){return c.bn===d.s;}); if(!x)return; x.px=+d.c; x.hi=+d.h; x.lo=+d.l; if(+d.o)x.c=(+d.c-+d.o)/+d.o*100; recalc(x); tickDirty=true; }catch(e){} };
+  function conn(base,isFb){ try{ tickerWS=new WebSocket(base+'/stream?streams='+syms.join('/')); tickerWS.onmessage=onmsg; tickerWS.onclose=function(){ setTimeout(startTickerWS,3000); }; }catch(e){ if(!isFb&&!fellBack){fellBack=true; conn('wss://data-stream.binance.vision',true);} } }
+  conn('wss://fstream.binance.com',false); // 선물 우선
+  setTimeout(function(){ if(!got && !fellBack && tickerWS){ fellBack=true; try{tickerWS.onclose=null;tickerWS.close();}catch(e){} conn('wss://data-stream.binance.vision',true); } },4000); // 막히면 현물 폴백
 }
 setInterval(function(){ if(!tickDirty)return; tickDirty=false;
   [...list.querySelectorAll('.li[data-s]')].forEach(function(row){ var x=C.find(function(c){return c.s===row.dataset.s;}); if(!x)return;
