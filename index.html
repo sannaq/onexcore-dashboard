@@ -117,6 +117,10 @@
   .jlv{font-size:12px;margin-top:4px}
   .jmemo{font-size:12px;margin-top:6px;line-height:1.5;color:var(--sub)}
   .jbtns{display:flex;gap:6px;margin-top:8px}
+  .hztabs{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 9px}
+  .hzt{flex:1;min-width:62px;padding:8px 6px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);color:var(--txt);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;text-align:center;line-height:1.25}
+  .hzt.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 13%,var(--panel2))}
+  .hzt span{display:block;font-size:13px;margin-top:2px;font-weight:800}
   #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:var(--accent);color:#fff;padding:12px 18px;border-radius:12px;font-size:13px;font-weight:800;box-shadow:0 10px 34px rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:.35s;z-index:2000;max-width:90vw;text-align:center}
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
   .alrow{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
@@ -432,6 +436,12 @@ function showDetail(s){
   h+='<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span class="price num">'+x._disp+'</span>'+chgHtml(x.c)+'<span class="pill '+t[1]+'">'+t[0]+'</span></div>';
   if(x.bn)h+='<div id="topsig" class="sigcard" style="display:none"></div>';
   if(x.bn){
+    h+='<div id="alertbox" class="lqcard" style="margin-top:12px"><div class="lqh">🔔 가격 알림</div>'
+     +'<div class="alrow"><select id="alDir"><option value="above">이상</option><option value="below">이하</option></select><input id="alPrice" type="number" inputmode="decimal" placeholder="목표 가격"><button class="tf" onclick="addAlertFromDetail()">＋ 추가</button></div>'
+     +'<div id="allist" style="margin-top:8px"></div>'
+     +'<div class="muted" style="font-size:11px;margin-top:6px;line-height:1.5">앱(탭)이 켜져 있을 때 도달하면 알림이 뜹니다. 완전 종료 상태의 푸시는 서버가 필요해 미지원.</div></div>';
+  }
+  if(x.bn){
     h+='<div class="sect">📈 차트</div>';
     h+='<div class="tfrow"><button class="tf'+(chartOn?' on':'')+'" onclick="toggleChart()">'+(chartOn?'📉 차트끄기':'📈 차트보기')+'</button>';
     if(chartOn){h+='<button class="tf'+(autoTf?' on':'')+'" onclick="toggleAutoTf()" title="줌 레벨에 맞춰 시간봉 자동 전환">🅰 자동</button>'+[['1m','1분'],['5m','5분'],['30m','30분'],['1h','1시간'],['4h','4시간'],['1d','1일']].map(function(a){return '<button class="tf'+(curInterval===a[0]?' on':'')+'" onclick="setTf(\''+a[0]+'\')">'+a[1]+'</button>';}).join('')+'<button class="tf" onclick="refreshChart()">🔄 새로고침</button>'+'<button class="tf" onclick="saveChart()">📷 저장</button>'+'<button class="tf'+(liqOn?' on':'')+'" onclick="toggleLiq()">🔥 청산맵</button>';}
@@ -463,6 +473,7 @@ function showDetail(s){
     h+='<div style="margin-top:14px;font-size:13px;color:var(--sub);line-height:1.6">📊 주식형 스냅샷입니다(실시간 미지원). 정밀 시나리오는 Claude 채팅에 <code>'+x.s+' 분석해줘</code>.</div>'+chart;
   }
   det.innerHTML=h;
+  if(x.bn&&typeof renderAlertList==='function')renderAlertList(x.s);
   if(x.bn&&chartOn&&window.LightweightCharts)drawChart(x);
   if(x.bn)fetchFlow(x);
 }
@@ -521,6 +532,22 @@ function calcPos(){
   else if(!stopFirst) h+='<div class="calcwarn">⚠️ '+lev+'x에선 손절('+(stopDist*100).toFixed(2)+'%) 전에 청산('+(liqFrac*100).toFixed(2)+'%)됩니다. 레버리지를 낮추세요.</div>';
   else h+='<div class="calcok">✅ 손절 맞으면 딱 '+money(riskAmt)+'('+rk+'%)만 잃습니다. 증거금 '+money(margin)+'로 계획대로 실행 가능.</div>';
   out.innerHTML=h;
+}
+/* 타점 — 구간별(초단기~장기) 진입·목표·손절 + 손익비 설명 */
+function showHz(tf){
+  document.querySelectorAll('.hzt').forEach(function(b){b.classList.toggle('on', b.dataset.tf===tf);});
+  var out=document.getElementById('hzout'); if(!out)return;
+  var sg=(window._hz||{})[tf], d=window._hzDec||2;
+  if(!sg){ out.innerHTML='<div class="muted" style="font-size:12px;padding:4px 0">이 구간 데이터가 부족해요.</div>'; return; }
+  var isLong=sg.dir==='long';
+  var tgtPct=Math.abs(sg.target-sg.entry)/sg.entry*100, stpPct=Math.abs(sg.entry-sg.stop)/sg.entry*100;
+  var rr=stpPct?tgtPct/stpPct:0;
+  out.innerHTML=
+    '<div class="lqrow"><span class="muted">방향</span><span class="'+(isLong?'up':'down')+'" style="font-weight:800">'+(isLong?'▲ 롱 (오르면 이익)':'▼ 숏 (내리면 이익)')+'</span></div>'
+   +'<div class="lqrow"><span class="muted">'+(isLong?'매수 진입가':'숏 진입가')+'</span><span class="num" style="font-weight:800">'+fmt(sg.entry,d)+'</span></div>'
+   +'<div class="lqrow"><span class="muted">🎯 목표가 (익절)</span><span class="num up">'+fmt(sg.target,d)+' <span class="muted" style="font-size:11px">(+'+tgtPct.toFixed(2)+'%)</span></span></div>'
+   +'<div class="lqrow"><span class="muted">✕ 손절가</span><span class="num down">'+fmt(sg.stop,d)+' <span class="muted" style="font-size:11px">(−'+stpPct.toFixed(2)+'%)</span></span></div>'
+   +'<div class="muted" style="font-size:11.5px;margin-top:7px;line-height:1.6;background:var(--panel);border-radius:8px;padding:8px 10px">💡 <b>손익비 '+rr.toFixed(1)+' : 1</b> — 목표 닿으면 <b class="up">+'+tgtPct.toFixed(2)+'%</b>, 손절되면 <b class="down">−'+stpPct.toFixed(2)+'%</b>. 즉 <b>1 잃을 위험에 '+rr.toFixed(1)+' 벌 기회</b>예요. 보통 <b>2:1 이상</b>이면 유리. 단, 손절폭(−'+stpPct.toFixed(2)+'%)이 너무 작으면 숫자는 커 보여도 <b>쉽게 손절</b>됩니다.</div>';
 }
 /* 매매 일지 · 모의 트레이딩 */
 function loadTrades(){ try{return JSON.parse(localStorage.getItem('oxtrades')||'[]');}catch(e){return [];} }
@@ -801,9 +828,10 @@ async function fetchFlow(x){
       fetch(FAPI+'klines?symbol='+x.bn+'&interval=15m&limit=200').then(r=>r.json()),
       fetch(FAPI+'klines?symbol='+x.bn+'&interval=4h&limit=120').then(r=>r.json()).catch(function(){return[];}),
       fetch(B+'openInterestHist?symbol='+x.bn+'&period=1h&limit=6').then(r=>r.json()).catch(function(){return[];}),
-      fetch(FAPI+'klines?symbol='+x.bn+'&interval=5m&limit=200').then(r=>r.json()).catch(function(){return[];})
+      fetch(FAPI+'klines?symbol='+x.bn+'&interval=5m&limit=200').then(r=>r.json()).catch(function(){return[];}),
+      fetch(FAPI+'klines?symbol='+x.bn+'&interval=1h&limit=200').then(r=>r.json()).catch(function(){return[];})
     ]);
-    const g=r[0][0], tt=r[1][0], tk=r[2][0], kl=r[3], kl4=r[4], oih=r[5], kl5=r[6];
+    const g=r[0][0], tt=r[1][0], tk=r[2][0], kl=r[3], kl4=r[4], oih=r[5], kl5=r[6], kl1h=r[7];
     const gL=+g.longAccount*100, gS=+g.shortAccount*100;
     const tL=+tt.longAccount*100, tS=+tt.shortAccount*100;
     const bV=+tk.buyVol, sV=+tk.sellVol, tot=bV+sV, bP=tot?bV/tot*100:50;
@@ -827,16 +855,17 @@ async function fetchFlow(x){
     var mc=macdCalc(kl.map(function(k){return +k[4];}));
     if(mc)h+='<div class="rsub">📉 MACD <b class="'+(mc.bull?'up':'down')+'">'+(mc.bull?'상승 우위':'하락 우위')+'</b> · '+(mc.rising?'강해지는 중':'약해지는 중')+'</div>';
     if(Array.isArray(oih)&&oih.length>=2){var o1=+oih[oih.length-1].sumOpenInterest, o0=+oih[0].sumOpenInterest, oc=o0?((o1-o0)/o0*100):0; h+='<div class="rsub">🔓 미결제약정(OI) <b class="'+(oc>=0?'up':'down')+'">'+(oc>=0?'+':'')+oc.toFixed(1)+'%</b> <span class="muted">(최근 6시간 · '+(oc>=0?'포지션 증가':'감소')+')</span></div>';}
-    var t5=sigFrom(kl5), t15=sigFrom(kl), t4=sigFrom(kl4);
-    var HZ=[['초단기 (5m)',t5],['단기 (15m)',t15],['중기 (4h)',t4]];
-    var dirs=HZ.map(function(z){return z[1]?z[1].dir:null;}).filter(Boolean);
+    var t5=sigFrom(kl5), t15=sigFrom(kl), t1h=sigFrom(kl1h), t4=sigFrom(kl4);
+    window._hz={'5m':t5,'15m':t15,'1h':t1h,'4h':t4}; window._hzDec=d;
+    var HZ=[['초단기','5m',t5],['단기','15m',t15],['중기','1h',t1h],['장기','4h',t4]];
+    var dirs=HZ.map(function(z){return z[2]?z[2].dir:null;}).filter(Boolean);
     var longs=dirs.filter(function(dd){return dd==='long';}).length, shorts=dirs.length-longs;
     var consensus=longs>shorts?'long':(shorts>longs?'short':'long');
     var allAgree=dirs.length>0&&(longs===dirs.length||shorts===dirs.length);
-    function hzB(z){ if(!z)return '<span class="muted">데이터 부족</span>'; return z.dir==='long'?'<b class="up">▲ 롱</b>':'<b class="down">▼ 숏</b>'; }
-    h+='<div style="border-top:1px solid var(--line);margin-top:10px;padding-top:9px"><div class="lqh">📈 추세 — 초단기·단기·중기 <span class="muted" style="font-weight:400;text-transform:none">(회귀 추세)</span></div>'
-      +HZ.map(function(z){return '<div class="lqrow"><span class="muted">'+z[0]+'</span><span>'+hzB(z[1])+(z[1]?' <span class="muted" style="font-size:11px">진입 '+fmt(z[1].entry,d)+' · 목표 '+fmt(z[1].target,d)+'</span>':'')+'</span></div>';}).join('')
-      +'<div class="muted" style="font-size:11.5px;margin-top:5px;line-height:1.5">'+(allAgree?('✅ 세 구간 모두 '+(longs?'상승':'하락')+' → 방향 신뢰 높음'):'⚠️ 구간별 방향이 엇갈림 → <b>관망 권장</b>(무리한 진입 자제). 짧게 볼지 길게 볼지 정하고 그 구간만 보세요.')+'</div></div>';
+    h+='<div style="border-top:1px solid var(--line);margin-top:10px;padding-top:9px"><div class="lqh">🎯 타점 — 구간 선택 <span class="muted" style="font-weight:400;text-transform:none">(버튼을 누르면 진입·목표·손절)</span></div>'
+      +'<div class="hztabs">'+HZ.map(function(z){var dc=z[2]?(z[2].dir==="long"?"up":"down"):"muted",ar=z[2]?(z[2].dir==="long"?"▲롱":"▼숏"):"-";return '<button class="hzt" data-tf="'+z[1]+'" onclick="showHz(\''+z[1]+'\')">'+z[0]+'<span class="'+dc+'">'+ar+'</span></button>';}).join('')+'</div>'
+      +'<div id="hzout"></div>'
+      +'<div class="muted" style="font-size:11px;margin-top:5px;line-height:1.5">'+(allAgree?('✅ 네 구간 방향이 모두 '+(longs?'상승':'하락')+' → 신뢰 높음'):'⚠️ 구간별 방향이 엇갈립니다 — 짧게 볼지 길게 볼지 정하고 <b>그 버튼만</b> 보세요(엇갈리면 관망도 방법).')+'</div></div>';
     // 차트 기반 참고 레벨 (회귀 채널)
     var n=kl.length, sx=0,sy=0,sxy=0,sxx=0;
     for(var i=0;i<n;i++){var cl=+kl[i][4]; sx+=i; sy+=cl; sxy+=i*cl; sxx+=i*i;}
@@ -845,13 +874,6 @@ async function fetchFlow(x){
     for(var i2=0;i2<n;i2++){var rr0=itc+sl*i2, hh=+kl[i2][2]-rr0, ll=+kl[i2][3]-rr0; if(hh>above)above=hh; if(ll<below)below=ll;}
     var last=itc+sl*(n-1), lower=last+below, upper=last+above, chH=(above-below)||1;
     var stop=lower-chH*0.15, ext=upper+chH*0.5, rr=(upper-lower)/((lower-stop)||1);
-    h+='<div style="border-top:1px solid var(--line);margin-top:10px;padding-top:9px"><div class="lqh">📌 차트 기반 참고 레벨 <span class="muted" style="font-weight:400;text-transform:none">(교육용·매매 지시 아님)</span></div>'
-     +'<div class="lqrow"><span class="muted">🟢 하단 지지 (롱 진입·숏 목표)</span><span class="num up">'+fmt(lower,d)+'</span></div>'
-     +'<div class="lqrow"><span class="muted">🔴 상단 저항 (숏 진입·롱 목표)</span><span class="num down">'+fmt(upper,d)+'</span></div>'
-     +'<div class="lqrow"><span class="muted">↔ 상단 확장 (2차)</span><span class="num">'+fmt(ext,d)+'</span></div>'
-     +'<div class="lqrow"><span class="muted">✕ 채널 이탈 손절 기준</span><span class="num down">'+fmt(stop,d)+'</span></div>'
-     +'<div class="lqrow"><span class="muted">채널 손익비</span><span class="num">'+(rr>0?('약 '+rr.toFixed(1)+' : 1'):'-')+'</span></div>'
-     +'<div class="muted" style="font-size:11px;margin-top:6px;line-height:1.5">회귀 채널·거래량 기반 계산값입니다. 확정 예측·매수 신호가 아니며, 진입·손절·목표는 본인 판단으로 조정하세요.</div></div>';
     h+='<div id="levblk" class="lqcard" style="margin-top:10px"></div>';
     var _bal='', _rk='1'; try{_bal=localStorage.getItem('oxbal')||'';_rk=localStorage.getItem('oxrisk')||'1';}catch(e){}
     var _pd=Math.max(2,decOf(x.px));
@@ -866,13 +888,9 @@ async function fetchFlow(x){
      +'<div class="muted" style="font-size:11px;margin-top:6px;line-height:1.5">레버리지는 위 ⚙️에서 고른 '+curLev+'x 사용. 손절 시 계좌의 리스크%만 잃도록 수량을 역산합니다.</div>'
      +'<button class="tf" style="margin-top:9px" onclick="logCurrentToJournal()">📓 이 설정 일지에 기록</button></div>';
     h+='<div id="btwrap" class="lqcard" style="margin-top:10px"><button class="tf" onclick="runBacktest()">🔬 이 지표 과거에 맞았나 검증</button><div id="btbox" style="margin-top:8px"></div></div>';
-    h+='<div id="alertbox" class="lqcard" style="margin-top:10px"><div class="lqh">🔔 가격 알림</div>'
-     +'<div class="alrow"><select id="alDir"><option value="above">이상</option><option value="below">이하</option></select><input id="alPrice" type="number" inputmode="decimal" placeholder="목표 가격"><button class="tf" onclick="addAlertFromDetail()">＋ 추가</button></div>'
-     +'<div id="allist" style="margin-top:8px"></div>'
-     +'<div class="muted" style="font-size:11px;margin-top:6px;line-height:1.5">앱(탭)이 켜져 있을 때 도달하면 알림이 뜹니다. 완전히 종료한 상태의 푸시는 서버가 필요해 지원되지 않아요.</div></div>';
     box.innerHTML=h;
     box.querySelectorAll('.gf[data-w]').forEach(function(f){ var w=f.dataset.w; requestAnimationFrame(function(){ f.style.width=w+'%'; }); }); // 캡슐 채움 애니메이션
-    updateLiveTaker(true); calcPos(); renderAlertList(x.s);
+    updateLiveTaker(true); calcPos(); showHz('15m');
     var tsEl=document.getElementById('topsig');
     if(tsEl){
       var dir=consensus, e,tg,sp,srr;
@@ -883,9 +901,8 @@ async function fetchFlow(x){
       var verdict=allAgree?(dir==='long'?'▲ 롱 우세':'▼ 숏 우세')+' ('+cnt2+')':'⚖ 혼조 · 관망 ('+(dir==='long'?'롱':'숏')+' '+cnt2+')';
       tsEl.className='sigcard '+(allAgree?(dir==='long'?'sig-long':'sig-short'):'');
       tsEl.style.display='block';
-      tsEl.innerHTML='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span class="sigdir '+(allAgree?(dir==='long'?'up':'down'):'wait')+'" style="'+(allAgree?'':'color:var(--wait)')+'">'+verdict+'</span><span class="muted" style="font-size:11.5px">초단기·단기·중기 종합 · 교육용</span></div>'
-        +'<div class="sigrow"><span class="muted">'+(dir==='long'?'매수 진입':'숏 진입')+' <b class="'+(dir==='long'?'up':'down')+'">'+fmt(e,d)+'</b></span><span class="muted">'+(dir==='long'?'매도 목표':'목표(커버)')+' <b>'+fmt(tg,d)+'</b></span><span class="muted">손절 <b class="'+(dir==='long'?'down':'up')+'">'+fmt(sp,d)+'</b></span><span class="muted">손익비 <b>'+(srr>0?('약 '+srr.toFixed(1)+':1'):'-')+'</b></span></div>'
-        +(allAgree?'':'<div class="muted" style="font-size:11px;margin-top:6px;color:var(--wait)">⚠️ 세 구간 방향이 엇갈립니다 — 확신 진입보다 관망을 권합니다. 아래 3구간 추세를 확인하세요.</div>');
+      tsEl.innerHTML='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span class="sigdir '+(allAgree?(dir==='long'?'up':'down'):'wait')+'" style="'+(allAgree?'':'color:var(--wait)')+'">'+verdict+'</span><span class="muted" style="font-size:11.5px">4구간 종합 · 교육용</span></div>'
+        +'<div class="muted" style="font-size:11.5px;margin-top:5px;line-height:1.5">'+(allAgree?'네 구간 방향 일치 — 아래 🎯 타점 버튼에서 구간별 진입가를 확인하세요.':'⚠️ 구간 방향이 엇갈립니다 — 확신 진입보다 관망 권장. 🎯 타점에서 구간을 골라 확인하세요.')+'</div>';
     }
   }catch(e){ box.innerHTML='<div class="muted" style="font-size:12px;padding:2px 0">수급 데이터를 불러오지 못했어요</div>'; }
 }
