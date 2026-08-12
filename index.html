@@ -708,32 +708,33 @@ async function drawChart(x){
     });
     var poc=volProfile(raw); if(poc&&lineOn.poc)cs.createPriceLine({price:(poc.low+poc.high)/2,color:'#ff9800',lineWidth:2,lineStyle:0,axisLabelVisible:true,title:'매물대'});
     if(liqOn){var tiers=(x.bn?[25,50,75]:[5,10,20]); if(tiers.indexOf(curLev)<0)tiers.push(curLev); tiers.sort(function(a,b){return a-b;}); tiers.forEach(function(L){var frac=Math.max(0.0005,1/L-0.005), cur=(L===curLev), a=cur?0.95:0.4, w=cur?2:1; cs.createPriceLine({price:x.px*(1-frac),color:'rgba(246,70,93,'+a+')',lineWidth:w,lineStyle:0,axisLabelVisible:true,title:(cur?'▶':'')+'롱'+L+'x청산'});cs.createPriceLine({price:x.px*(1+frac),color:'rgba(46,189,133,'+a+')',lineWidth:w,lineStyle:0,axisLabelVisible:true,title:(cur?'▶':'')+'숏'+L+'x청산'});});}
-    if(lineOn.ch)(function(){
-      const n=data.length; let sx=0,sy=0,sxy=0,sxx=0;
-      data.forEach((dd,i)=>{sx+=i;sy+=dd.close;sxy+=i*dd.close;sxx+=i*i;});
-      const den=(n*sxx-sx*sx), sl=den?(n*sxy-sx*sy)/den:0, itc=(sy-sl*sx)/n;
-      let above=-Infinity, below=Infinity;
-      data.forEach((dd,i)=>{const r=itc+sl*i; if(dd.high-r>above)above=dd.high-r; if(dd.low-r<below)below=dd.low-r;});
-      const mk=(off,w,style)=>{const s=chart.addLineSeries({color:'#4a9eff',lineWidth:w,lineStyle:style,lastValueVisible:false,priceLineVisible:false,crosshairMarkerVisible:false});s.setData(data.map((dd,i)=>({time:dd.time,value:itc+sl*i+off})));};
-      mk(above,1,0); mk(below,1,0);
-    })();
-    // 골드 스윙 추세선 (극점 앵커 → 최근 스윙 → 오른쪽 끝까지 연장)
-    if(lineOn.tr)(function(){
-      var up=data[data.length-1].close>=data[0].close;
-      var pv=pivots(data,4,up?'low':'high'); if(pv.length<2){pv=pivots(data,3,up?'low':'high');} if(pv.length<2)return;
-      // 앵커=극점(상승=최저 저점, 하락=최고 고점)
+    // 회귀 채널 · 골드 스윙 추세선 — 함수화(팬으로 과거 로딩 시 재계산·연장)
+    var chanRefs=[], trendRef=null;
+    function drawChannel(dd){
+      if(!lineOn.ch)return;
+      var n=dd.length, sx=0,sy=0,sxy=0,sxx=0;
+      dd.forEach(function(d0,i){sx+=i;sy+=d0.close;sxy+=i*d0.close;sxx+=i*i;});
+      var den=(n*sxx-sx*sx), sl2=den?(n*sxy-sx*sy)/den:0, itc=(sy-sl2*sx)/n;
+      var above=-Infinity, below=Infinity;
+      dd.forEach(function(d0,i){var r=itc+sl2*i; if(d0.high-r>above)above=d0.high-r; if(d0.low-r<below)below=d0.low-r;});
+      if(!chanRefs.length)chanRefs=[chart.addLineSeries({color:'#4a9eff',lineWidth:1,lastValueVisible:false,priceLineVisible:false,crosshairMarkerVisible:false}),chart.addLineSeries({color:'#4a9eff',lineWidth:1,lastValueVisible:false,priceLineVisible:false,crosshairMarkerVisible:false})];
+      chanRefs[0].setData(dd.map(function(d0,i){return {time:d0.time,value:itc+sl2*i+above};}));
+      chanRefs[1].setData(dd.map(function(d0,i){return {time:d0.time,value:itc+sl2*i+below};}));
+    }
+    function drawTrend(dd){
+      if(!lineOn.tr)return;
+      var up=dd[dd.length-1].close>=dd[0].close;
+      var pv=pivots(dd,4,up?'low':'high'); if(pv.length<2){pv=pivots(dd,3,up?'low':'high');} if(pv.length<2)return;
       var anchor=pv[0];
-      for(var k=0;k<pv.length;k++){ if(up){ if(data[pv[k]].low<data[anchor].low)anchor=pv[k]; } else { if(data[pv[k]].high>data[anchor].high)anchor=pv[k]; } }
-      // 앵커 이후 가장 최근 스윙
+      for(var k=0;k<pv.length;k++){ if(up){ if(dd[pv[k]].low<dd[anchor].low)anchor=pv[k]; } else { if(dd[pv[k]].high>dd[anchor].high)anchor=pv[k]; } }
       var later=null; for(var m=pv.length-1;m>=0;m--){ if(pv[m]>anchor){later=pv[m];break;} }
       if(later==null){ var idx=pv.indexOf(anchor); if(idx>0){later=anchor; anchor=pv[idx-1];} else return; }
-      var a=anchor, b=later;
-      var pa=up?data[a].low:data[a].high, pb=up?data[b].low:data[b].high;
-      var slope=(pb-pa)/(b-a);
-      var s=chart.addLineSeries({color:'#e0a83e',lineWidth:2,lastValueVisible:false,priceLineVisible:false,crosshairMarkerVisible:false});
-      var pts=[]; for(var ii=a; ii<data.length; ii++){pts.push({time:data[ii].time, value:pa+slope*(ii-a)});}
-      s.setData(pts);
-    })();
+      var a=anchor, b=later, pa=up?dd[a].low:dd[a].high, pb=up?dd[b].low:dd[b].high, slope=(pb-pa)/(b-a);
+      if(!trendRef)trendRef=chart.addLineSeries({color:'#e0a83e',lineWidth:2,lastValueVisible:false,priceLineVisible:false,crosshairMarkerVisible:false});
+      var pts=[]; for(var ii=a; ii<dd.length; ii++){pts.push({time:dd[ii].time, value:pa+slope*(ii-a)});}
+      trendRef.setData(pts);
+    }
+    drawChannel(data); drawTrend(data);
     chart.timeScale().applyOptions({barSpacing:7,rightOffset:4}); // 적정 밀도(자동 전환 안정) · 최신봉 우측 정렬
     var lastBar=Object.assign({},data[data.length-1]);
     var iv=IVMS[curInterval]||900000;
@@ -762,6 +763,7 @@ async function drawChart(x){
         cs.setData(data);
         var clz2=data.map(function(d){return d.close;});
         emaRefs.forEach(function(E){ if(clz2.length>=E.p){ var ev=ema(clz2,E.p); E.series.setData(data.map(function(d,i){return {time:d.time,value:ev[i]};})); } });
+        drawChannel(data); drawTrend(data); // 추세선·채널도 늘어난 데이터로 재계산(팬 따라감)
         if(vr)chart.timeScale().setVisibleLogicalRange({from:vr.from+added,to:vr.to+added});
         loadingHist=false;
       }).catch(function(){loadingHist=false;});
