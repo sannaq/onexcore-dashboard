@@ -418,7 +418,7 @@ function render(f){
   const term=(f||'').trim().toLowerCase();
   const rows=C.filter(x=>(!favOnly||!!term||favs.has(x.s))&&(!term||x.s.toLowerCase().includes(term)||x.k.toLowerCase().includes(term)));
   list.innerHTML=rows.map(x=>{if(!x._st)recalc(x);const t=TAG[x._st]||TAG.base;const lb=x.bn?'<span class="live-b">●LIVE</span>':'';
-    return '<div class="li'+(x.s===sel?' on':'')+'" data-s="'+x.s+'"><span class="star'+(favs.has(x.s)?' on':'')+'" onclick="toggleFav(\''+x.s+'\',event)">★</span><div class="sym">'+x.s+lb+'<small>'+esc(x.k)+'</small></div><span class="pill '+t[1]+'">'+t[0]+'</span>'+(x.c!=null?'<span class="dir '+(x.c>=0?'dir-long':'dir-short')+'">'+(x.c>=0?'롱':'숏')+'</span>':'')+chgHtml(x.c)+'<span class="px num '+(x.c>=0?'up':(x.c==null?'':'down'))+'">'+x._disp+'</span></div>';
+    return '<div class="li'+(x.s===sel?' on':'')+'" data-s="'+x.s+'"><span class="star'+(favs.has(x.s)?' on':'')+'" onclick="toggleFav(\''+x.s+'\',event)">★</span><div class="sym">'+x.s+lb+'<small>'+esc(x.k)+'</small></div><span class="pill '+t[1]+'">'+t[0]+'</span>'+(x.c!=null?'<span class="dir '+(x.c>=0?'dir-long':'dir-short')+'" title="24h 등락 방향(매매 신호 아님)">'+(x.c>=0?'24h▲':'24h▼')+'</span>':'')+chgHtml(x.c)+'<span class="px num '+(x.c>=0?'up':(x.c==null?'':'down'))+'">'+x._disp+'</span></div>';
   }).join('')||('<div class="li muted">'+((favOnly&&!term)?'즐겨찾기한 종목이 없어요 — 검색해서 별(★)을 눌러 추가하세요':'검색 결과 없음')+'</div>');
   var fc=document.getElementById('favchip'); if(fc)fc.classList.toggle('on',favOnly);
   cnt.textContent=rows.length+' / '+C.length+' 종목 · 크립토 27 실시간';
@@ -476,14 +476,14 @@ function autoSwitchTf(iv){ if(iv===curInterval)return; curInterval=iv; if(sel) s
 function autoTfCheck(lr){ if(!autoTf||!chartOn||!lr)return false; var vis=lr.to-lr.from; if(!(vis>0))return false; var el=document.getElementById('tvchart'); var wpx=(el&&el.clientWidth)?el.clientWidth:360; var pxb=wpx/vis; var idx=-1; for(var i=0;i<TF_LADDER.length;i++){if(TF_LADDER[i][0]===curInterval){idx=i;break;}} if(idx<0)return false; var now=Date.now(); if(now-lastTfSwitch<800)return false; if(pxb<2.2 && idx<TF_LADDER.length-1){lastTfSwitch=now; autoSwitchTf(TF_LADDER[idx+1][0]); return true;} else if(pxb>18 && idx>0){lastTfSwitch=now; autoSwitchTf(TF_LADDER[idx-1][0]); return true;} return false; }
 function toggleAutoTf(){autoTf=!autoTf; try{localStorage.setItem('oxauto',autoTf?'1':'0');}catch(e){} if(sel) showDetail(sel);}
 /* 실시간 체결(공격적 매수/매도) — aggTrade 기반 */
-var takerWin=[], lastTakerRender=0, takerSymCur=null;
+var takerWin=[], takerBuySum=0, takerSellSum=0, lastTakerRender=0, takerSymCur=null;
 function fmtAmt(v){ v=+v||0; if(v>=1e9)return (v/1e9).toFixed(2)+'B'; if(v>=1e6)return (v/1e6).toFixed(2)+'M'; if(v>=1e3)return (v/1e3).toFixed(1)+'K'; return v.toFixed(0); }
 function updateLiveTaker(force){
   var now=Date.now(), cut=now-90000;
-  while(takerWin.length&&takerWin[0].t<cut)takerWin.shift();
-  if(!force && now-lastTakerRender<350)return; lastTakerRender=now;
+  while(takerWin.length&&takerWin[0].t<cut){var o=takerWin.shift(); takerBuySum-=o.b; takerSellSum-=o.s;}
+  if(!force && now-lastTakerRender<700)return; lastTakerRender=now; // 렉·튐 방지: 700ms 주기
   var el=document.getElementById('livetaker'); if(!el)return;
-  var b=0,s=0,cnt=takerWin.length; for(var i=0;i<takerWin.length;i++){b+=takerWin[i].b; s+=takerWin[i].s;}
+  var b=takerBuySum, s=takerSellSum, cnt=takerWin.length;
   var tot=b+s; if(tot<=0)return;
   var bp=b/tot*100;
   var gf=el.querySelector('.gf'); if(gf)gf.style.width=bp.toFixed(1)+'%';
@@ -738,7 +738,7 @@ async function drawChart(x){
     var lastBar=Object.assign({},data[data.length-1]);
     var iv=IVMS[curInterval]||900000;
     chartTimer=setInterval(function(){ fetch(FAPI+'klines?symbol='+x.bn+'&interval='+curInterval+'&limit=2').then(r=>r.json()).then(function(rw){ if(Array.isArray(rw)&&rw.length){var recent=toBars(rw); var nb=recent[recent.length-1]; try{cs.update(nb);}catch(e){} var li=data.length-1; if(li>=0&&data[li].time===nb.time){data[li]=nb;} else if(li>=0&&nb.time>data[li].time){data.push(nb);} lastBar=Object.assign({},nb);} }).catch(function(){}); }, 5000);
-    var wsMsg=function(ev){ try{var m=JSON.parse(ev.data); var p=+m.p; if(!p)return; var qv=(+m.q||0)*p; if(qv>0){takerWin.push({t:(m.T||Date.now()), b:(m.m===false?qv:0), s:(m.m===false?0:qv)}); updateLiveTaker(false);} var bt=Math.floor((m.T||Date.now())/iv)*iv/1000; if(!lastBar||bt>lastBar.time){lastBar={time:bt,open:p,high:p,low:p,close:p};} else {if(p>lastBar.high)lastBar.high=p; if(p<lastBar.low)lastBar.low=p; lastBar.close=p;} cs.update(lastBar); var dp=det.querySelector('.price'); if(dp&&sel===x.s)dp.textContent=fmt(p,x.dec||2); }catch(e){} };
+    var wsMsg=function(ev){ try{var m=JSON.parse(ev.data); var p=+m.p; if(!p)return; var qv=(+m.q||0)*p; if(qv>0){var _bq=(m.m===false?qv:0),_sq=(m.m===false?0:qv); takerWin.push({t:(m.T||Date.now()), b:_bq, s:_sq}); takerBuySum+=_bq; takerSellSum+=_sq; updateLiveTaker(false);} var bt=Math.floor((m.T||Date.now())/iv)*iv/1000; if(!lastBar||bt>lastBar.time){lastBar={time:bt,open:p,high:p,low:p,close:p};} else {if(p>lastBar.high)lastBar.high=p; if(p<lastBar.low)lastBar.low=p; lastBar.close=p;} cs.update(lastBar); var dp=det.querySelector('.price'); if(dp&&sel===x.s)dp.textContent=fmt(p,x.dec||2); }catch(e){} };
     function openWS(){ var sym=x.bn.toLowerCase(), got=false, fellBack=false;
       function conn(u,isFb){ try{ chartWS=new WebSocket(u); chartWS.onmessage=function(ev){got=true; wsMsg(ev);}; chartWS.onclose=function(){ if(sel===x.s&&chartObj){ setTimeout(function(){ if(sel===x.s&&chartObj) openWS(); },2000);} }; }catch(e){ if(!isFb&&!fellBack){fellBack=true; conn('wss://data-stream.binance.vision/ws/'+sym+'@aggTrade',true);} } }
       conn('wss://fstream.binance.com/ws/'+sym+'@aggTrade',false); // 선물 우선(ONEXCORE·바이낸스 일치)
@@ -789,7 +789,7 @@ function sigFrom(kl){ if(!kl||kl.length<12)return null; var n=kl.length,sx=0,sy=
 function macdCalc(cl){ if(!cl||cl.length<35)return null; var e12=ema(cl,12),e26=ema(cl,26),md=[],i; for(i=0;i<cl.length;i++)md.push(e12[i]-e26[i]); var sig=ema(md,9); var h=md[md.length-1]-sig[sig.length-1], hp=md[md.length-2]-sig[sig.length-2]; return {hist:h, rising:h>hp, bull:h>0}; }
 async function fetchFlow(x){
   const box=document.getElementById('flowbox'); if(!box||!x.bn) return;
-  if(takerSymCur!==x.s){takerWin=[]; takerSymCur=x.s;} // 종목 바뀌면 실시간 체결 창 초기화
+  if(takerSymCur!==x.s){takerWin=[]; takerBuySum=0; takerSellSum=0; takerSymCur=x.s;} // 종목 바뀌면 실시간 체결 창 초기화
   try{
     const B='https://fapi.binance.com/futures/data/';
     const r=await Promise.all([
@@ -798,9 +798,10 @@ async function fetchFlow(x){
       fetch(B+'takerlongshortRatio?symbol='+x.bn+'&period=5m&limit=1').then(r=>r.json()),
       fetch(FAPI+'klines?symbol='+x.bn+'&interval=15m&limit=200').then(r=>r.json()),
       fetch(FAPI+'klines?symbol='+x.bn+'&interval=4h&limit=120').then(r=>r.json()).catch(function(){return[];}),
-      fetch(B+'openInterestHist?symbol='+x.bn+'&period=1h&limit=6').then(r=>r.json()).catch(function(){return[];})
+      fetch(B+'openInterestHist?symbol='+x.bn+'&period=1h&limit=6').then(r=>r.json()).catch(function(){return[];}),
+      fetch(FAPI+'klines?symbol='+x.bn+'&interval=5m&limit=200').then(r=>r.json()).catch(function(){return[];})
     ]);
-    const g=r[0][0], tt=r[1][0], tk=r[2][0], kl=r[3], kl4=r[4], oih=r[5];
+    const g=r[0][0], tt=r[1][0], tk=r[2][0], kl=r[3], kl4=r[4], oih=r[5], kl5=r[6];
     const gL=+g.longAccount*100, gS=+g.shortAccount*100;
     const tL=+tt.longAccount*100, tS=+tt.shortAccount*100;
     const bV=+tk.buyVol, sV=+tk.sellVol, tot=bV+sV, bP=tot?bV/tot*100:50;
@@ -824,9 +825,16 @@ async function fetchFlow(x){
     var mc=macdCalc(kl.map(function(k){return +k[4];}));
     if(mc)h+='<div class="rsub">📉 MACD <b class="'+(mc.bull?'up':'down')+'">'+(mc.bull?'상승 우위':'하락 우위')+'</b> · '+(mc.rising?'강해지는 중':'약해지는 중')+'</div>';
     if(Array.isArray(oih)&&oih.length>=2){var o1=+oih[oih.length-1].sumOpenInterest, o0=+oih[0].sumOpenInterest, oc=o0?((o1-o0)/o0*100):0; h+='<div class="rsub">🔓 미결제약정(OI) <b class="'+(oc>=0?'up':'down')+'">'+(oc>=0?'+':'')+oc.toFixed(1)+'%</b> <span class="muted">(최근 6시간 · '+(oc>=0?'포지션 증가':'감소')+')</span></div>';}
-    var sS=sigFrom(kl), sL=sigFrom(kl4);
-    function sigLine(lbl,sg){ if(!sg)return ''; var dc=sg.dir==='long'?'up':'down',dn=sg.dir==='long'?'롱':'숏'; return '<div class="lqrow"><span class="muted">'+lbl+' <b class="'+dc+'">'+dn+'</b></span><span class="num" style="font-size:12px">진입 '+fmt(sg.entry,d)+' · 목표 '+fmt(sg.target,d)+' · 손절 '+fmt(sg.stop,d)+'</span></div>'; }
-    h+='<div style="border-top:1px solid var(--line);margin-top:10px;padding-top:9px"><div class="lqh">⏱️ 단기 · 장기 신호 <span class="muted" style="font-weight:400;text-transform:none">(교육용)</span></div>'+sigLine('⚡ 단기(15m)',sS)+sigLine('📅 장기(4h)',sL)+'<div class="muted" style="font-size:11px;margin-top:4px">단기=15분봉·장기=4시간봉 추세 기준. 두 방향이 같으면 신뢰↑, 다르면 관망.</div></div>';
+    var t5=sigFrom(kl5), t15=sigFrom(kl), t4=sigFrom(kl4);
+    var HZ=[['초단기 (5m)',t5],['단기 (15m)',t15],['중기 (4h)',t4]];
+    var dirs=HZ.map(function(z){return z[1]?z[1].dir:null;}).filter(Boolean);
+    var longs=dirs.filter(function(dd){return dd==='long';}).length, shorts=dirs.length-longs;
+    var consensus=longs>shorts?'long':(shorts>longs?'short':'long');
+    var allAgree=dirs.length>0&&(longs===dirs.length||shorts===dirs.length);
+    function hzB(z){ if(!z)return '<span class="muted">데이터 부족</span>'; return z.dir==='long'?'<b class="up">▲ 롱</b>':'<b class="down">▼ 숏</b>'; }
+    h+='<div style="border-top:1px solid var(--line);margin-top:10px;padding-top:9px"><div class="lqh">📈 추세 — 초단기·단기·중기 <span class="muted" style="font-weight:400;text-transform:none">(회귀 추세)</span></div>'
+      +HZ.map(function(z){return '<div class="lqrow"><span class="muted">'+z[0]+'</span><span>'+hzB(z[1])+(z[1]?' <span class="muted" style="font-size:11px">진입 '+fmt(z[1].entry,d)+' · 목표 '+fmt(z[1].target,d)+'</span>':'')+'</span></div>';}).join('')
+      +'<div class="muted" style="font-size:11.5px;margin-top:5px;line-height:1.5">'+(allAgree?('✅ 세 구간 모두 '+(longs?'상승':'하락')+' → 방향 신뢰 높음'):'⚠️ 구간별 방향이 엇갈림 → <b>관망 권장</b>(무리한 진입 자제). 짧게 볼지 길게 볼지 정하고 그 구간만 보세요.')+'</div></div>';
     // 차트 기반 참고 레벨 (회귀 채널)
     var n=kl.length, sx=0,sy=0,sxy=0,sxx=0;
     for(var i=0;i<n;i++){var cl=+kl[i][4]; sx+=i; sy+=cl; sxy+=i*cl; sxx+=i*i;}
@@ -836,11 +844,11 @@ async function fetchFlow(x){
     var last=itc+sl*(n-1), lower=last+below, upper=last+above, chH=(above-below)||1;
     var stop=lower-chH*0.15, ext=upper+chH*0.5, rr=(upper-lower)/((lower-stop)||1);
     h+='<div style="border-top:1px solid var(--line);margin-top:10px;padding-top:9px"><div class="lqh">📌 차트 기반 참고 레벨 <span class="muted" style="font-weight:400;text-transform:none">(교육용·매매 지시 아님)</span></div>'
-     +'<div class="lqrow"><span class="muted">🟢 매수 관심가 (지지)</span><span class="num up">'+fmt(lower,d)+'</span></div>'
-     +'<div class="lqrow"><span class="muted">✕ 손절 (무효화)</span><span class="num down">'+fmt(stop,d)+'</span></div>'
-     +'<div class="lqrow"><span class="muted">🎯 1차 매도 목표 (저항)</span><span class="num">'+fmt(upper,d)+'</span></div>'
-     +'<div class="lqrow"><span class="muted">🎯 2차 매도 목표 (확장)</span><span class="num">'+fmt(ext,d)+'</span></div>'
-     +'<div class="lqrow"><span class="muted">손익비 (매수가 기준)</span><span class="num">'+(rr>0?('약 '+rr.toFixed(1)+' : 1'):'-')+'</span></div>'
+     +'<div class="lqrow"><span class="muted">🟢 하단 지지 (롱 진입·숏 목표)</span><span class="num up">'+fmt(lower,d)+'</span></div>'
+     +'<div class="lqrow"><span class="muted">🔴 상단 저항 (숏 진입·롱 목표)</span><span class="num down">'+fmt(upper,d)+'</span></div>'
+     +'<div class="lqrow"><span class="muted">↔ 상단 확장 (2차)</span><span class="num">'+fmt(ext,d)+'</span></div>'
+     +'<div class="lqrow"><span class="muted">✕ 채널 이탈 손절 기준</span><span class="num down">'+fmt(stop,d)+'</span></div>'
+     +'<div class="lqrow"><span class="muted">채널 손익비</span><span class="num">'+(rr>0?('약 '+rr.toFixed(1)+' : 1'):'-')+'</span></div>'
      +'<div class="muted" style="font-size:11px;margin-top:6px;line-height:1.5">회귀 채널·거래량 기반 계산값입니다. 확정 예측·매수 신호가 아니며, 진입·손절·목표는 본인 판단으로 조정하세요.</div></div>';
     h+='<div id="levblk" class="lqcard" style="margin-top:10px"></div>';
     var _bal='', _rk='1'; try{_bal=localStorage.getItem('oxbal')||'';_rk=localStorage.getItem('oxrisk')||'1';}catch(e){}
@@ -865,14 +873,17 @@ async function fetchFlow(x){
     updateLiveTaker(true); calcPos(); renderAlertList(x.s);
     var tsEl=document.getElementById('topsig');
     if(tsEl){
-      var dir=(sl>=0)?'long':'short', e,tg,sp,srr;
+      var dir=consensus, e,tg,sp,srr;
       if(dir==='long'){e=lower;tg=upper;sp=stop;srr=(tg-e)/((e-sp)||1);}
       else{e=upper;tg=lower;sp=upper+chH*0.15;srr=(e-tg)/((sp-e)||1);}
       window._sig={dir:dir,entry:e,stop:sp,target:tg,px:x.px}; renderLevBlock(x);
-      tsEl.className='sigcard '+(dir==='long'?'sig-long':'sig-short');
+      var cnt2=(dir==='long'?longs:shorts)+'/'+dirs.length;
+      var verdict=allAgree?(dir==='long'?'▲ 롱 우세':'▼ 숏 우세')+' ('+cnt2+')':'⚖ 혼조 · 관망 ('+(dir==='long'?'롱':'숏')+' '+cnt2+')';
+      tsEl.className='sigcard '+(allAgree?(dir==='long'?'sig-long':'sig-short'):'');
       tsEl.style.display='block';
-      tsEl.innerHTML='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span class="sigdir '+(dir==='long'?'up':'down')+'">'+(dir==='long'?'▲ 롱 LONG':'▼ 숏 SHORT')+'</span><span class="muted" style="font-size:11.5px">차트 추세 기반 · 교육용</span></div>'
-        +'<div class="sigrow"><span class="muted">'+(dir==='long'?'매수 진입':'숏 진입')+' <b class="'+(dir==='long'?'up':'down')+'">'+fmt(e,d)+'</b></span><span class="muted">'+(dir==='long'?'매도 목표':'목표(커버)')+' <b>'+fmt(tg,d)+'</b></span><span class="muted">손절 <b class="'+(dir==='long'?'down':'up')+'">'+fmt(sp,d)+'</b></span><span class="muted">손익비 <b>'+(srr>0?('약 '+srr.toFixed(1)+':1'):'-')+'</b></span></div>';
+      tsEl.innerHTML='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span class="sigdir '+(allAgree?(dir==='long'?'up':'down'):'wait')+'" style="'+(allAgree?'':'color:var(--wait)')+'">'+verdict+'</span><span class="muted" style="font-size:11.5px">초단기·단기·중기 종합 · 교육용</span></div>'
+        +'<div class="sigrow"><span class="muted">'+(dir==='long'?'매수 진입':'숏 진입')+' <b class="'+(dir==='long'?'up':'down')+'">'+fmt(e,d)+'</b></span><span class="muted">'+(dir==='long'?'매도 목표':'목표(커버)')+' <b>'+fmt(tg,d)+'</b></span><span class="muted">손절 <b class="'+(dir==='long'?'down':'up')+'">'+fmt(sp,d)+'</b></span><span class="muted">손익비 <b>'+(srr>0?('약 '+srr.toFixed(1)+':1'):'-')+'</b></span></div>'
+        +(allAgree?'':'<div class="muted" style="font-size:11px;margin-top:6px;color:var(--wait)">⚠️ 세 구간 방향이 엇갈립니다 — 확신 진입보다 관망을 권합니다. 아래 3구간 추세를 확인하세요.</div>');
     }
   }catch(e){ box.innerHTML='<div class="muted" style="font-size:12px;padding:2px 0">수급 데이터를 불러오지 못했어요</div>'; }
 }
