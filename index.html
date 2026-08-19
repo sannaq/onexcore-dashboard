@@ -352,6 +352,8 @@
 </div>
 
 <script>
+/* 진단: JS 오류를 화면 상단에 빨간 배너로 표시 (원인 파악용) */
+window.addEventListener('error',function(e){try{var b=document.getElementById('__eb');if(!b){b=document.createElement('div');b.id='__eb';b.style.cssText='position:fixed;top:0;left:0;right:0;background:#c0392b;color:#fff;font-size:11px;line-height:1.4;padding:6px 10px;z-index:99999;white-space:pre-wrap;word-break:break-all;font-family:monospace';b.onclick=function(){b.remove();};document.body.appendChild(b);}b.textContent='⚠️JS오류(탭하면닫힘): '+(e.message||'')+' @'+String(e.filename||'').split('/').pop()+':'+(e.lineno||'');}catch(_){}}, true);
 const root=document.documentElement,tb=document.getElementById('theme');
 function sysDark(){return matchMedia&&matchMedia('(prefers-color-scheme:dark)').matches;}
 function applyTheme(t){root.setAttribute('data-theme',t);tb.textContent=t==='dark'?'☀️':'🌙';}
