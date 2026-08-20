@@ -3,17 +3,17 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-<title>AUREUM · 선물 분석 터미널</title>
+<title>VANTOR · 선물 분석 터미널</title>
 <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css"/>
 <style>
-  :root{--bg:#f3ebdd;--panel:#fbf6ec;--panel2:#ece1cf;--line:#e1d6c2;--txt:#232029;--sub:#8b8173;--accent:#2f6bff;--up:#0e9f6e;--down:#e5384d;--wait:#c07a12;--upbg:rgba(14,159,110,.1);--downbg:rgba(229,56,77,.1);}
-  @media (prefers-color-scheme:dark){:root{--bg:#0a0a0c;--panel:#161215;--panel2:#211a1e;--line:#322a2e;--txt:#eceaec;--sub:#948a8e;--accent:#ff3b4e;--up:#2ebd85;--down:#f6465d;--wait:#e0a83e;--upbg:rgba(46,189,133,.13);--downbg:rgba(246,70,93,.16);}}
-  :root[data-theme="light"]{--bg:#f3ebdd;--panel:#fbf6ec;--panel2:#ece1cf;--line:#e1d6c2;--txt:#232029;--sub:#8b8173;--accent:#2f6bff;--up:#0e9f6e;--down:#e5384d;--wait:#c07a12;--upbg:rgba(14,159,110,.1);--downbg:rgba(229,56,77,.1);}
-  :root[data-theme="dark"]{--bg:#0a0a0c;--panel:#161215;--panel2:#211a1e;--line:#322a2e;--txt:#eceaec;--sub:#948a8e;--accent:#ff3b4e;--up:#2ebd85;--down:#f6465d;--wait:#e0a83e;--upbg:rgba(46,189,133,.13);--downbg:rgba(246,70,93,.16);}
+  :root{--bg:#f4f5f8;--panel:#ffffff;--panel2:#f7f8fa;--line:#e7eaf0;--txt:#1a2230;--sub:#6b7686;--accent:#c19a3e;--up:#16b364;--down:#e5384d;--wait:#c19a3e;--upbg:rgba(22,179,100,.1);--downbg:rgba(229,56,77,.1);}
+  @media (prefers-color-scheme:dark){:root{--bg:#0b0f16;--panel:#131924;--panel2:#0f151f;--line:#212a38;--txt:#e8ecf3;--sub:#8b96a7;--accent:#e0b552;--up:#2ebd85;--down:#f6465d;--wait:#e0b552;--upbg:rgba(46,189,133,.13);--downbg:rgba(246,70,93,.16);}}
+  :root[data-theme="light"]{--bg:#f4f5f8;--panel:#ffffff;--panel2:#f7f8fa;--line:#e7eaf0;--txt:#1a2230;--sub:#6b7686;--accent:#c19a3e;--up:#16b364;--down:#e5384d;--wait:#c19a3e;--upbg:rgba(22,179,100,.1);--downbg:rgba(229,56,77,.1);}
+  :root[data-theme="dark"]{--bg:#0b0f16;--panel:#131924;--panel2:#0f151f;--line:#212a38;--txt:#e8ecf3;--sub:#8b96a7;--accent:#e0b552;--up:#2ebd85;--down:#f6465d;--wait:#e0b552;--upbg:rgba(46,189,133,.13);--downbg:rgba(246,70,93,.16);}
   *{box-sizing:border-box}
   body{margin:0;background:radial-gradient(1200px 640px at 50% -8%, color-mix(in srgb,var(--accent) 7%,var(--bg)), var(--bg)) fixed;color:var(--txt);font-family:'Pretendard','Segoe UI','Malgun Gothic',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;letter-spacing:-.1px;padding:16px 16px 44px;max-width:1280px;margin:0 auto;min-height:100vh;overflow-x:hidden}
   ::selection{background:color-mix(in srgb,var(--accent) 32%,transparent)}
@@ -210,7 +210,7 @@
 </head>
 <body>
 <div class="hd">
-  <div class="brand"><span style="color:var(--accent)">◆</span> AUREUM <span class="muted" style="font-weight:600;font-size:12px">선물 분석 터미널</span>
+  <div class="brand"><span style="color:var(--accent)">◆</span> VANTOR <span class="muted" style="font-weight:600;font-size:12px">선물 분석 터미널</span>
     <small><span id="live"><span class="dot off"></span>연결 중…</span> · 크립토 실시간 · <span id="clock">--:--:--</span></small></div>
   <div style="display:flex;gap:8px;align-items:center">
     <button class="loginbtn" id="login">🔓 로그인</button>
@@ -353,7 +353,7 @@
 
 <script>
 /* 진단: JS 오류를 화면 상단에 빨간 배너로 표시 (원인 파악용) */
-window.addEventListener('error',function(e){try{var b=document.getElementById('__eb');if(!b){b=document.createElement('div');b.id='__eb';b.style.cssText='position:fixed;top:0;left:0;right:0;background:#c0392b;color:#fff;font-size:11px;line-height:1.4;padding:6px 10px;z-index:99999;white-space:pre-wrap;word-break:break-all;font-family:monospace';b.onclick=function(){b.remove();};document.body.appendChild(b);}b.textContent='⚠️JS오류(탭하면닫힘): '+(e.message||'')+' @'+String(e.filename||'').split('/').pop()+':'+(e.lineno||'');}catch(_){}}, true);
+/* (진단용 에러배너 제거 — 벤치 cross-origin "Script error." 노이즈 방지) */
 const root=document.documentElement,tb=document.getElementById('theme');
 function sysDark(){return matchMedia&&matchMedia('(prefers-color-scheme:dark)').matches;}
 function applyTheme(t){root.setAttribute('data-theme',t);tb.textContent=t==='dark'?'☀️':'🌙';}
@@ -617,7 +617,7 @@ function checkAlerts(){
 }
 function fireAlert(c,x){
   var msg=c.s+' '+fmt(c.px,decOf(c.px))+' — '+fmt(x.price,decOf(x.price))+(x.dir==='above'?' 이상 도달':' 이하 도달');
-  try{ if('Notification' in window && Notification.permission==='granted') new Notification('🔔 AUREUM 가격 알림',{body:msg}); }catch(e){}
+  try{ if('Notification' in window && Notification.permission==='granted') new Notification('🔔 VANTOR 가격 알림',{body:msg}); }catch(e){}
   showToast('🔔 '+msg);
 }
 function showToast(t){ var el=document.getElementById('toast'); if(!el){el=document.createElement('div');el.id='toast';document.body.appendChild(el);} el.textContent=t; el.className='show'; clearTimeout(window._toastT); window._toastT=setTimeout(function(){el.className='';},5500); }
