@@ -1044,6 +1044,8 @@ function saveFavRemote(){ if(fbUser&&fbDb){ fbDb.collection('favorites').doc(fbU
     } else { lb.innerHTML='🔓 로그인'; }
   });
 })();
+/* VANTOR 연동: ?s=BTC 처럼 들어오면 해당 코인 상세를 바로 연다 */
+try{ var _qs=new URLSearchParams(location.search).get('s'); if(_qs){ _qs=_qs.toUpperCase().replace(/USDT$/,''); if(typeof C!=='undefined'&&C.find&&C.find(function(x){return x.s===_qs;})){ sel=_qs; if(typeof render==='function')render(''); if(typeof showDetail==='function')showDetail(_qs); if(window.innerWidth<=780){document.body.classList.add('detail-open');window.scrollTo({top:0});} } } }catch(e){}
 </script>
 </body>
 </html>
