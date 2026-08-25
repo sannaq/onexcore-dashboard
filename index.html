@@ -256,6 +256,22 @@
     <div id="trendbox"><div class="muted" style="font-size:12px">불러오는 중…</div></div>
   </div>
   <div class="card">
+    <h2>🇰🇷 김치 프리미엄 <span class="muted" style="text-transform:none;font-weight:400">· 업비트 vs 바이낸스 · 실시간</span></h2>
+    <div id="kimchibox"><div class="muted" style="font-size:12px">불러오는 중…</div></div>
+    <p class="muted" style="font-size:11.5px;margin:10px 0 0;line-height:1.55">국내가가 해외보다 <b style="color:var(--txt)">비싸면 +</b>(과열·매수 쏠림), <b style="color:var(--txt)">싸면 −</b>(공포·역프). USDT 환산 기준.</p>
+  </div>
+  <div class="card">
+    <h2>💥 실시간 청산 <span class="muted" style="text-transform:none;font-weight:400">· 바이낸스 선물 · 라이브</span></h2>
+    <div id="liqstat" style="display:flex;gap:10px;margin-bottom:8px"></div>
+    <div id="liqfeed"><div class="muted" style="font-size:12px">청산 발생 대기 중… (WebSocket 연결)</div></div>
+    <p class="muted" style="font-size:11.5px;margin:10px 0 0;line-height:1.55"><b style="color:var(--txt)">롱 청산</b>=강제 매도(하락 가속), <b style="color:var(--txt)">숏 청산</b>=강제 매수(상승 가속). 대형 청산이 몰리면 변동성 폭발.</p>
+  </div>
+  <div class="card">
+    <h2>💸 펀딩비 현황 <span class="muted" style="text-transform:none;font-weight:400">· 무기한 선물 · 실시간</span></h2>
+    <div id="fundbox"><div class="muted" style="font-size:12px">불러오는 중…</div></div>
+    <p class="muted" style="font-size:11.5px;margin:10px 0 0;line-height:1.55"><b style="color:var(--txt)">+</b>=롱이 숏에 지불(롱 과열), <b style="color:var(--txt)">−</b>=숏이 롱에 지불(숏 과열). 8시간마다 정산.</p>
+  </div>
+  <div class="card">
     <h2>📰 실시간 뉴스 <span class="muted" id="newsupd" style="text-transform:none;font-weight:400">불러오는 중…</span></h2>
     <div id="newsbox"><div class="muted" style="font-size:12px">불러오는 중…</div></div>
     <div class="muted" style="font-size:11px;margin-top:8px">출처: 블록미디어·토큰포스트 · 5분마다 자동 갱신 · 긍정/부정은 키워드 기반 자동 태그(참고용)</div>
@@ -982,6 +998,73 @@ async function fetchMarket(){
   }catch(e){}
 }
 fetchMarket();setInterval(fetchMarket,90000);
+
+/* ---- 김치 프리미엄 (업비트 vs 바이낸스, USDT 환산) ---- */
+async function fetchKimchi(){
+  var box=document.getElementById('kimchibox'); if(!box)return;
+  try{
+    var up=await fetch('https://api.upbit.com/v1/ticker?markets=KRW-BTC,KRW-ETH,KRW-USDT').then(function(r){return r.json();});
+    var upM={}; up.forEach(function(x){upM[x.market]=x.trade_price;});
+    var usdtKrw=upM['KRW-USDT']; if(!usdtKrw)return;
+    var bn=await fetch('https://api.binance.com/api/v3/ticker/price?symbols=%5B%22BTCUSDT%22,%22ETHUSDT%22%5D').then(function(r){return r.json();});
+    var bnM={}; bn.forEach(function(x){bnM[x.symbol]=+x.price;});
+    var rows=[['BTC','KRW-BTC','BTCUSDT'],['ETH','KRW-ETH','ETHUSDT']].map(function(c){
+      var p=(upM[c[1]]/(bnM[c[2]]*usdtKrw)-1)*100; return {sym:c[0],p:p,krw:upM[c[1]]}; });
+    box.innerHTML='<div class="g2">'+rows.map(function(r){var pc=r.p>=0?'up':'down';
+      return '<div class="idx"><div class="t"><span>'+r.sym+' 김프</span></div><div class="v num '+pc+'">'+(r.p>=0?'+':'')+r.p.toFixed(2)+'%</div><div class="d muted num">₩'+Math.round(r.krw).toLocaleString('en-US')+'</div></div>';
+    }).join('')+'</div><div class="d muted num" style="margin-top:8px;font-size:12px">USDT 환율 ₩'+Math.round(usdtKrw).toLocaleString('en-US')+' 기준</div>';
+  }catch(e){ box.innerHTML='<div class="muted" style="font-size:12px">김치프리미엄을 불러오지 못했어요(업비트/바이낸스 접속).</div>'; }
+}
+fetchKimchi();setInterval(fetchKimchi,30000);
+
+/* ---- 펀딩비 현황 (바이낸스 무기한) ---- */
+async function fetchFunding(){
+  var box=document.getElementById('fundbox'); if(!box)return;
+  try{
+    var arr=await fetch('https://fapi.binance.com/fapi/v1/premiumIndex').then(function(r){return r.json();});
+    var want=['BTCUSDT','ETHUSDT','SOLUSDT','XRPUSDT','DOGEUSDT','BNBUSDT','ADAUSDT','AVAXUSDT','LINKUSDT','SUIUSDT'];
+    var m={}; arr.forEach(function(x){m[x.symbol]=x;});
+    var rows=want.map(function(s){var x=m[s]; return x?{sym:s.replace('USDT',''),fr:+x.lastFundingRate*100}:null;}).filter(Boolean);
+    rows.sort(function(a,b){return Math.abs(b.fr)-Math.abs(a.fr);});
+    var mx=Math.max.apply(null,rows.map(function(r){return Math.abs(r.fr);}))||0.01;
+    box.innerHTML=rows.map(function(r){var pos=r.fr>=0, w=Math.max(4,Math.round(Math.abs(r.fr)/mx*100));
+      return '<div style="display:flex;align-items:center;gap:10px;padding:5px 0"><span style="width:52px;font-weight:700;font-size:13px">'+r.sym+'</span>'
+        +'<div style="flex:1;height:14px;background:var(--panel2);border-radius:4px;position:relative;overflow:hidden"><div style="position:absolute;left:50%;top:0;width:1px;height:100%;background:var(--line)"></div>'
+        +'<div style="position:absolute;top:0;height:100%;border-radius:4px;'+(pos?('left:50%;width:'+(w/2)+'%;background:var(--up)'):('right:50%;width:'+(w/2)+'%;background:var(--down)'))+'"></div></div>'
+        +'<span class="num '+(pos?'up':'down')+'" style="width:74px;text-align:right;font-weight:700;font-size:12.5px">'+(pos?'+':'')+r.fr.toFixed(4)+'%</span></div>';
+    }).join('');
+  }catch(e){ box.innerHTML='<div class="muted" style="font-size:12px">펀딩비를 불러오지 못했어요.</div>'; }
+}
+fetchFunding();setInterval(fetchFunding,60000);
+
+/* ---- 실시간 청산 피드 (바이낸스 forceOrder WebSocket) ---- */
+(function liqWS(){
+  var feed=[], longUsd=0, shortUsd=0;
+  function ago(t){var s=(Date.now()-t)/1000; return s<60?Math.floor(s)+'초 전':Math.floor(s/60)+'분 전';}
+  function render(){
+    var st=document.getElementById('liqstat'), fb=document.getElementById('liqfeed'); if(!fb)return;
+    if(st){ var tot=longUsd+shortUsd||1; st.innerHTML=
+      '<div class="idx" style="flex:1"><div class="t"><span>롱 청산(누적)</span></div><div class="v num down" style="font-size:18px">$'+fmtAmt(longUsd)+'</div></div>'
+      +'<div class="idx" style="flex:1"><div class="t"><span>숏 청산(누적)</span></div><div class="v num up" style="font-size:18px">$'+fmtAmt(shortUsd)+'</div></div>'; }
+    fb.innerHTML=feed.length?feed.map(function(x){
+      return '<div class="kv"><span><b class="'+(x.isLong?'down':'up')+'">'+(x.isLong?'롱 청산':'숏 청산')+'</b> '+esc(x.sym)+'</span><span class="num" style="font-size:12.5px">$'+fmtAmt(x.usd)+' <span class="muted">'+ago(x.t)+'</span></span></div>';
+    }).join(''):'<div class="muted" style="font-size:12px;padding:4px 0">지금은 청산이 잠잠해요 — <b style="color:var(--txt)">변동성이 커지면</b> 대형 청산이 여기 실시간으로 뜹니다.</div>';
+  }
+  render(); // $0 초기 표시
+  function connect(){
+    var ws; try{ ws=new WebSocket('wss://fstream.binance.com/ws/!forceOrder@arr'); }catch(e){ setTimeout(connect,5000); return; }
+    ws.onmessage=function(ev){ try{ var d=JSON.parse(ev.data), o=d.o; if(!o)return;
+      var usd=(+o.q)*(+o.ap||+o.p); if(!(usd>=1500))return; // 소액 청산 노이즈 컷
+      var isLong=o.S==='SELL'; if(isLong)longUsd+=usd; else shortUsd+=usd;
+      feed.unshift({sym:o.s.replace('USDT','').replace('USD',''),isLong:isLong,usd:usd,t:Date.now()}); if(feed.length>10)feed.pop();
+      render();
+    }catch(e){} };
+    ws.onclose=function(){ setTimeout(connect,4000); };
+    ws.onerror=function(){ try{ws.close();}catch(e){} };
+  }
+  setInterval(function(){ if(feed.length)render(); },20000); // 시간표시 갱신
+  connect();
+})();
 
 /* ---- 기초자료 상세 팝업 (다이어그램 + 설명) ---- */
 var SVG_CANDLE='<svg viewBox="0 0 320 175" style="width:100%;height:auto;color:var(--sub)"><line x1="95" y1="22" x2="95" y2="150" stroke="#26a69a" stroke-width="2"/><rect x="82" y="58" width="26" height="56" rx="2" fill="#26a69a"/><text x="95" y="14" text-anchor="middle" font-size="11" fill="#26a69a">양봉(상승)</text><line x1="225" y1="30" x2="225" y2="160" stroke="#ef5350" stroke-width="2"/><rect x="212" y="60" width="26" height="56" rx="2" fill="#ef5350"/><text x="225" y="22" text-anchor="middle" font-size="11" fill="#ef5350">음봉(하락)</text><text x="116" y="27" font-size="10" fill="currentColor">← 고가(위꼬리)</text><text x="116" y="152" font-size="10" fill="currentColor">← 저가(아래꼬리)</text><text x="116" y="64" font-size="10" fill="currentColor">← 종가</text><text x="116" y="116" font-size="10" fill="currentColor">← 시가</text><text x="12" y="86" font-size="10" fill="currentColor">몸통</text><text x="12" y="100" font-size="10" fill="currentColor">=시~종가</text></svg>';
