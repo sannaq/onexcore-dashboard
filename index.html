@@ -248,8 +248,17 @@
     <div id="fngbox"><div class="muted" style="font-size:12px">불러오는 중…</div></div>
   </div>
   <div class="card">
+    <h2>🌗 알트코인 시즌 지수 <span class="muted" style="text-transform:none;font-weight:400">· 최근 90일 · CoinGecko</span></h2>
+    <div id="altbox"><div class="muted" style="font-size:12px">불러오는 중…</div></div>
+  </div>
+  <div class="card">
     <h2>🌐 전체 크립토 시장 <span class="muted" style="text-transform:none;font-weight:400">· 실시간</span></h2>
     <div id="cmktbox"><div class="muted" style="font-size:12px">불러오는 중…</div></div>
+  </div>
+  <div class="card">
+    <h2>🗺 크립토 히트맵 <span class="muted" style="text-transform:none;font-weight:400">· 시총 상위 · 24h</span></h2>
+    <div id="cheatbox"><div class="muted" style="font-size:12px">불러오는 중…</div></div>
+    <div class="muted" style="font-size:11.5px;margin-top:8px;display:flex;gap:14px;flex-wrap:wrap"><span>🟥 상승</span><span>⬛ 보합</span><span>🟦 하락</span><span>· 타일 크기 = 시가총액 · 클릭 시 상세</span></div>
   </div>
   <div class="card">
     <h2>🔥 트렌딩 코인 <span class="muted" style="text-transform:none;font-weight:400">· CoinGecko</span></h2>
@@ -1036,6 +1045,54 @@ async function fetchFunding(){
   }catch(e){ box.innerHTML='<div class="muted" style="font-size:12px">펀딩비를 불러오지 못했어요.</div>'; }
 }
 fetchFunding();setInterval(fetchFunding,60000);
+
+/* ---- 알트코인 시즌 지수 (최근 90일 알트 vs BTC) ---- */
+/* ---- 알트시즌 + 히트맵 : CoinGecko 한 번의 호출로 둘 다 (rate limit 회피) ---- */
+function renderAlt(arr){
+  var box=document.getElementById('altbox'); if(!box)return;
+  var STABLE={USDT:1,USDC:1,DAI:1,BUSD:1,TUSD:1,FDUSD:1,USDE:1,PYUSD:1,USDD:1,USDS:1};
+  // 공개 API는 90d가 안 오므로 사용 가능한 가장 긴 창(30d>7d>24h)을 자동 선택
+  function chg(x){ return x.price_change_percentage_30d_in_currency!=null?x.price_change_percentage_30d_in_currency
+    :(x.price_change_percentage_7d_in_currency!=null?x.price_change_percentage_7d_in_currency
+    :x.price_change_percentage_24h); }
+  var period=arr.some(function(x){return x.price_change_percentage_30d_in_currency!=null;})?'30일'
+    :(arr.some(function(x){return x.price_change_percentage_7d_in_currency!=null;})?'7일':'24시간');
+  var btc=arr.find(function(x){return x.symbol&&x.symbol.toLowerCase()==='btc';});
+  var btcC=btc?chg(btc):null; if(btcC==null){ box.innerHTML='<div class="muted" style="font-size:12px">알트시즌 데이터를 불러오지 못했어요.</div>'; return; }
+  var alts=arr.filter(function(x){return x&&x.symbol&&!STABLE[x.symbol.toUpperCase()]&&x.symbol.toLowerCase()!=='btc'&&chg(x)!=null;});
+  if(!alts.length)return;
+  var beat=alts.filter(function(x){return chg(x)>btcC;}).length;
+  var idx=Math.round(beat/alts.length*100);
+  var lab=idx>=75?['알트 시즌','#26a69a','알트로 자금이 확산 — 알트 강세 국면']:idx<=25?['비트코인 시즌','#f7931a','자금이 비트코인에 집중 — 알트 약세']:['중립 구간','var(--sub)','뚜렷한 쏠림 없음 — 방향 대기'];
+  box.innerHTML='<div style="display:flex;align-items:baseline;gap:12px"><span class="price" style="color:'+lab[1]+'">'+idx+'</span><span class="muted">/100</span><span class="pill" style="background:'+lab[1]+'22;color:'+lab[1]+'">'+lab[0]+'</span></div>'
+    +'<div style="height:10px;border-radius:6px;margin:12px 0 6px;background:linear-gradient(90deg,#f7931a,var(--panel2) 45%,var(--panel2) 55%,#26a69a);position:relative"><i style="position:absolute;top:-3px;left:'+idx+'%;transform:translateX(-50%);width:4px;height:16px;border-radius:2px;background:var(--txt)"></i></div>'
+    +'<div class="fglab"><span>0 비트 시즌</span><span>50</span><span>알트 시즌 100</span></div>'
+    +'<p class="muted" style="font-size:12px;margin:10px 0 0;line-height:1.55">최근 '+period+' 알트 '+alts.length+'개 중 <b style="color:var(--txt)">'+beat+'개</b>가 BTC를 상회. '+lab[2]+'.</p>';
+}
+function renderHeat(arr){
+  var box=document.getElementById('cheatbox'); if(!box)return;
+  var items=arr.filter(function(x){return x&&x.market_cap;}).slice(0,36);
+  var caps=items.map(function(x){return Math.sqrt(x.market_cap||1);});
+  var mx=Math.max.apply(null,caps), mn=Math.min.apply(null,caps);
+  function hcol(ch){ var t=Math.max(-1,Math.min(1,(ch||0)/8)); var g=[58,63,74], up=[38,166,154], dn=[239,83,80];
+    var to=t>=0?up:dn, a=Math.abs(t);
+    return 'rgb('+Math.round(g[0]+(to[0]-g[0])*a)+','+Math.round(g[1]+(to[1]-g[1])*a)+','+Math.round(g[2]+(to[2]-g[2])*a)+')'; }
+  box.innerHTML='<div style="display:flex;flex-wrap:wrap;gap:4px">'+items.map(function(x){
+    var ch=x.price_change_percentage_24h||0, grow=1+Math.round((Math.sqrt(x.market_cap||1)-mn)/((mx-mn)||1)*5);
+    return '<div class="cheat-t" style="flex:1 1 auto;min-width:82px;max-width:200px;border-radius:8px;padding:8px 10px;color:#fff;min-height:52px;display:flex;flex-direction:column;justify-content:center;flex-grow:'+grow+';background:'+hcol(ch)+'">'
+      +'<div style="font-weight:800;font-size:13px;text-shadow:0 1px 2px rgba(0,0,0,.3)">'+esc((x.symbol||'').toUpperCase())+'</div>'
+      +'<div style="font-size:12px;font-weight:700;opacity:.96;text-shadow:0 1px 2px rgba(0,0,0,.3)">'+(ch>=0?'+':'')+ch.toFixed(2)+'%</div></div>';
+  }).join('')+'</div>';
+  var tiles=box.querySelectorAll('.cheat-t'); for(var i=0;i<tiles.length;i++){ tiles[i].style.cursor='pointer'; tiles[i].onclick=function(){ var t=document.querySelector('.tab[data-tab="coins"]'); if(t)t.click(); }; }
+}
+async function fetchCG100(retry){
+  try{
+    var arr=await fetch('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=1&price_change_percentage=24h,7d,30d').then(function(r){ if(!r.ok)throw 0; return r.json(); });
+    if(!Array.isArray(arr)||!arr.length)throw 0;
+    renderHeat(arr); renderAlt(arr);
+  }catch(e){ if(!retry){ setTimeout(function(){fetchCG100(1);},9000); } }
+}
+setTimeout(function(){fetchCG100(0);},4200);setInterval(function(){fetchCG100(0);},120000); // 초기 4.2s 지연(다른 CG 호출과 분리) + 2분 간격
 
 /* ---- 실시간 청산 피드 (바이낸스 forceOrder WebSocket) ---- */
 (function liqWS(){
